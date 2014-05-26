@@ -5,8 +5,8 @@ Interactive Brokers API
 
 *Note: this library is work in progress* 
 
-Current install procedure
-=========================
+Setup
+=====
 
 Base is haskell-platform, GHC 7.6.3
 
@@ -18,7 +18,7 @@ Base is haskell-platform, GHC 7.6.3
     cabal install --only-dependencies -p
     cabal configure -p
     cabal build
-    cabal run
+    cabal run requests
 
 IB Installation (OS X)
 ======================

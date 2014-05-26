@@ -127,7 +127,7 @@ processRequests svc@IBAppService{..} = do
      , release $ IBRequest $ RequestRealTimeBars sv 3 conESM4 5 BarBasisTrades False
      , release $ IBRequest $ RequestHistoricalData sv 4 conESM4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
      , release $ IBRequest $ RequestIds sv 3
-     , release $ IBRequest $ PlaceOrder sv boid conESM4 (orderMkt oid _ibClientId Buy 1)
+     --, release $ IBRequest $ PlaceOrder sv boid conESM4 (orderMkt oid _ibClientId Buy 1)
      , release $ IBRequest $ RequestOpenOrders sv
      , release $ IBRequest $ RequestAllOpenOrders sv
      , release $ IBRequest $ RequestAutoOpenOrders sv False

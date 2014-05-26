@@ -2,10 +2,6 @@
 To Do List
 ==========
 
-Repo
-
-* LiCENSE file
-
 ### Defects
 
 * TBC
@@ -20,11 +16,11 @@ Repo
 
 ### Design
 
-* Convert to MVC? Drop Edge? ListT?
+* Refactor Edge to ListT
 * Async housekeeping audit
 * Config read only (vs in 'mutable' state at present)?
 * Some data unncecessary in IB connection state vs app service state (e.g. accounts, next valid id, etc?) 
-* BASE currency (in AccountValue msg) soln - was in currency enum in hq.data.currency
+* BASE currency (in AccountValue msg) solution - was in currency enum in hq.data.currency
 
 ### Test suite 
 
@@ -34,7 +30,7 @@ Repo
 
 ### Data 
 
-* More typing (enum.utctime,etc.) instead of strings/bytestrings (e.g. in contract)
+* More typing (enum,utctime,etc.) instead of strings/bytestrings (e.g. in contract)
 * IBOrder: into multiple data types
 * IBOrder: maybe's for bools
 * IBOrder: decomposition may allow a single maybe for related fields
@@ -47,9 +43,6 @@ Repo
 * ServiceCommand: implement start, pause, resume
 * ibsNextRequestId: add? if so, implment update logic
 * ibsNextOrderId: retain? if so, implement remaining update logic
-* SocketHandler: Rationalise verbose code esp. maybe handling and repetition, use regular variables for wire processes
-* SocketHandler: Differentiate requested vs unrequested disconnect
-* SocketHandler: Refactor names e.g. Finished, finishedHandler, SocketIO (->SocketHandlerIn/Out?), etc.
 * Check client server version <= server version
 * Error handler for error responses from IB (see IB API docs for error codes)
 * Error response messages - see EClientSocket.java e.g. not connected, cannot send (also cannot create which currently only logs a message)
@@ -65,6 +58,15 @@ Repo
 * IBContract: complete refactoring to use field level parsers
 * TickPrice: parse also generates a TickSize but latter seems to also stream separately - confirm/remove duplication? Have commented out TickSize generation from TickPrice parser.
 * Add error message to fail "" statements
+
+### Socket service
+
+* Move to another library (e.g mvc-service)
+* Complete model (e.g. checking and updating state)
+* Tidy up Connection code, consistent use of STM vs IO
+* Streamline verbose code e.g. atomically
+* Tests and benchmarks
+
 
 
 
