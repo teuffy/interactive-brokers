@@ -1,5 +1,7 @@
 {-# LANGUAGE RankNTypes, Arrows #-}
 
+-- Code provided by Gabriel Gonzalez
+
 module Pipes.Edge where
 
 import           Control.Arrow
