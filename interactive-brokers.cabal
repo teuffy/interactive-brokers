@@ -1,0 +1,156 @@
+Name:                     interactive-brokers
+Version:                  0.1
+Synopsis:                 Interactive Brokers API
+Description:              Interactive Brokers API
+Homepage:                 www.github.com/cmahon/interactive-brokers
+License:                  BSD3
+License-File:             LICENSE
+Author:                   Chris Mahon
+Maintainer:               cnmahon@gmail.com
+Copyright:                Chris Mahon 2014
+Category:                 API
+Build-Type:               Simple
+Stability:                Experimental
+Cabal-Version:            >= 1.10
+Extra-Source-Files:       README.md
+
+Source-Repository         head
+  type:                   git
+  location:               git://github.com/cmahon/interactive-brokers.git
+
+Library
+  hs-source-dirs:         library
+  ghc-options:            -Wall -O2 -threaded
+  default-language:       Haskell2010
+  exposed-modules:        API.IB
+                          MVC.Socket
+  other-modules:          API.IB.Constant
+                          API.IB.Connection
+                          API.IB.Data 
+                          API.IB.Enum 
+                          API.IB.Request
+                          API.IB.Parse
+                          API.IB.Util
+                          Pipes.Edge
+  build-depends:          base >= 4 && < 5,
+                          async >= 2.0.1.4,
+                          attoparsec >= 0.10.4.0,
+                          bytestring >= 0.10.0.2,
+                          containers >= 0.5.0.0,
+                          currency >= 0.2.0.0,
+                          data-default >= 0.5.3,
+                          lens >= 4.0,
+                          mvc >= 1.0,
+                          mvc-service >= 0.1,
+                          mtl >= 2.1.2,
+                          network >= 2.4.1.2,
+                          network-simple >= 0.3.0,
+                          old-locale >= 1.0.0.5,
+                          pipes >= 4.1.0,
+                          pipes-concurrency >= 2.0.2,
+                          pipes-network >= 0.6.2,
+                          pipes-safe >= 2.0.2 && < 2.1,
+                          split >= 0.2.2,
+                          stm >= 2.4.2,
+                          time >= 1.4.0.1,
+                          transformers >= 0.3.0.0,
+                          tz >= 0.0.0.5
+
+Executable requests
+  main-is:                Requests.hs
+  default-language:       Haskell2010
+  ghc-options:            -Wall -O2 -threaded
+  hs-source-dirs:         executable
+  build-depends:          base >= 4 && < 5,
+                          async >= 2.0.1.4,
+                          attoparsec >= 0.10.4.0,
+                          bytestring >= 0.10.0.2,
+                          containers >= 0.5.0.0,
+                          data-default >= 0.5.3,
+                          interactive-brokers >= 0.1,
+                          lens >= 4.0,
+                          mtl >= 2.1.2,
+                          mvc >= 1.0,
+                          mvc-service >= 0.1,
+                          network >= 2.4.1.2,
+                          network-simple >= 0.3.0,
+                          old-locale >= 1.0.0.5,
+                          pipes >= 4.1.0,
+                          pipes-concurrency >= 2.0.2,
+                          pipes-network >= 0.6.2,
+                          --pipes-safe >= 2.0.2 && < 2.1,
+                          split >= 0.2.2,
+                          stm >= 2.4.2,
+                          time >= 1.4.0.1,
+                          transformers >= 0.3.0.0
+
+Executable sockettest
+  main-is:                SocketTest.hs
+  default-language:       Haskell2010
+  ghc-options:            -Wall -O2 -threaded
+  hs-source-dirs:         executable
+  build-depends:          base >= 4 && < 5,
+                          async >= 2.0.1.4,
+                          bytestring >= 0.10.0.2,
+                          containers >= 0.5.0.0,
+                          data-default >= 0.5.3,
+                          interactive-brokers >= 0.1,
+                          lens >= 4.0,
+                          mtl >= 2.1.2,
+                          mvc >= 1.0,
+                          mvc-service >= 0.1,
+                          network >= 2.4.1.2,
+                          network-simple >= 0.3.0,
+                          old-locale >= 1.0.0.5,
+                          pipes >= 4.1.0,
+                          pipes-concurrency >= 2.0.2,
+                          pipes-network >= 0.6.2,
+                          --pipes-safe >= 2.0.2 && < 2.1,
+                          stm >= 2.4.2,
+                          transformers >= 0.3.0.0
+
+test-suite tasty
+  main-is:                Tasty.hs
+  build-depends:          base >= 4, tasty, tasty-hunit, tasty-quickcheck, tasty-smallcheck
+  default-language:       Haskell2010
+  hs-source-dirs:         test-suite
+  type:                   exitcode-stdio-1.0
+
+--test-suite doctest
+--  main-is:                DocTest.hs
+--  build-depends:          base, Glob == 0.*, doctest == 0.*
+--  default-language:       Haskell2010
+--  hs-source-dirs:         test-suite
+--  type:                   exitcode-stdio-1.0
+
+test-suite hpc
+  main-is:                HPC.hs
+  build-depends:          base, process == 1.*, regex-compat == 0.*
+  default-language:       Haskell2010
+  hs-source-dirs:         test-suite
+  type:                   exitcode-stdio-1.0
+
+test-suite haddock
+  main-is:                Haddock.hs
+  build-depends:          base, process == 1.*, regex-compat == 0.*
+  default-language:       Haskell2010
+  hs-source-dirs:         test-suite
+  type:                   exitcode-stdio-1.0
+
+test-suite hlint
+  main-is:                HLint.hs
+  build-depends:          base, hlint == 1.8.*
+  default-language:       Haskell2010
+  hs-source-dirs:         test-suite
+  type:                   exitcode-stdio-1.0
+
+benchmark benchmarks
+  main-is:                Bench.hs
+  build-depends:          base,
+                          interactive-brokers >= 0.1,
+                          criterion == 0.*
+  default-language:       Haskell2010
+  hs-source-dirs:         benchmark
+  type:                   exitcode-stdio-1.0
+
+
