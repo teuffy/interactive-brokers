@@ -3,6 +3,8 @@ interactive-brokers
 
 Interactive Brokers API
 
+*Note: this library is work in progress* 
+
 Current install procedure
 =========================
 

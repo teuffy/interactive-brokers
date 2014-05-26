@@ -4,7 +4,6 @@ To Do List
 
 Repo
 
-* Move generic util functions to hq-utils
 * LiCENSE file
 
 ### Defects
@@ -21,11 +20,11 @@ Repo
 
 ### Design
 
-* Convert to MVC? Drop Edge? List T?
+* Convert to MVC? Drop Edge? ListT?
 * Async housekeeping audit
 * Config read only (vs in 'mutable' state at present)?
 * Some data unncecessary in IB connection state vs app service state (e.g. accounts, next valid id, etc?) 
-* Better BASE currency (in AccountValue msg) soln - currently in currenc enum (hq.data.currency)
+* BASE currency (in AccountValue msg) soln - was in currency enum in hq.data.currency
 
 ### Test suite 
 
