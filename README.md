@@ -57,12 +57,12 @@ Make ibtws executable
 IBController
 ------------
 
-Download the [latest IBController code](http://sourceforge.net/projects/ibcontroller/files/?source=navbar) and extract the archive in your home folder. Change to the newly created IBControllerVX-XX-X folder.
+Download the [latest IBController code](https://github.com/ib-controller/ib-controller) and extract the archive in your home folder. Change to the newly created IBControllerVX-XX-X folder.
 
     cp sampleIBControllerStart.sh ibc
     chmod +x ibc
 
-Edit ibc. Mine looks like this (I'm on IB Controller V10) but it should be the same for V11. Note the commented out username and password. 
+Edit ibc. Mine looks like this (note the commented-out username and password):
 
     #!/bin/bash
     TWSUSERID=<IB username>
