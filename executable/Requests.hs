@@ -45,7 +45,7 @@ orderMkt oid cid oa q = newIBOrder
   }
 
 -- -----------------------------------------------------------------------------
--- Test strategy app service
+-- Test strategy
 
 data IBEventHandler a = IBEventHandler
   { _ibDone :: Bool
@@ -146,7 +146,7 @@ processRequests svc@IBEventHandler{..} = do
      ]
 
 -- -----------------------------------------------------------------------------
--- App services
+-- Event handlers
 
 eventHandler :: EventHandler SomeEvent SomeEvent s 
 eventHandler = initialiseEventHandler $ mconcat
