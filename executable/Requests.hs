@@ -6,11 +6,10 @@ import           Control.Lens
 import qualified Data.ByteString.Char8 as BC
 import           Data.Default
 import           Data.Time
-import           Data.Typeable
 import           MVC
 import           MVC.Prelude
 import           MVC.Event             hiding (handleEvent)
-import           MVC.Model
+import           MVC.EventHandler
 import           MVC.Service
 
 import           API.IB
@@ -48,9 +47,8 @@ orderMkt oid cid oa q = newIBOrder
 -- -----------------------------------------------------------------------------
 -- Test strategy app service
 
-data IBAppService a = IBAppService
-  { _ibServiceId :: Int
-  , _ibDone :: Bool
+data IBEventHandler a = IBEventHandler
+  { _ibDone :: Bool
   , _ibClientId :: Int
   , _ibServerVersion :: Maybe Int
   , _ibServerTimeZone :: Maybe TimeZone
@@ -60,12 +58,11 @@ data IBAppService a = IBAppService
   , _ibNextOrderId :: Maybe Int
   }
 
-makeLenses ''IBAppService
+makeLenses ''IBEventHandler
 
-newIBAppService :: SomeAppService a
-newIBAppService = SomeAppService 0 IBAppServiceAPI IBAppService
-  { _ibServiceId = 0
-  , _ibDone = False
+newIBEventHandler :: EventHandler SomeEvent SomeEvent s
+newIBEventHandler = mkEventHandler $ SomeEventHandler 0 IBEventHandlerAPI Just id IBEventHandler
+  { _ibDone = False
   , _ibClientId = 0
   , _ibServerVersion = Nothing 
   , _ibServerTimeZone = Nothing
@@ -75,99 +72,86 @@ newIBAppService = SomeAppService 0 IBAppServiceAPI IBAppService
   , _ibNextOrderId = Nothing
   }
 
-instance AppService (IBAppService a) where
-  type AppState (IBAppService a) = a
-  data AppStateAPI (IBAppService a) = IBAppServiceAPI
-  processEvent s@IBAppService{} e
+instance HandlesEvent (IBEventHandler s) where
+  type AppState (IBEventHandler a) = a
+  data AppStateAPI (IBEventHandler a) = IBEventHandlerAPI
+  type EventIn (IBEventHandler a) = SomeEvent
+  type EventOut (IBEventHandler a) = SomeEvent
+  handleEvent s@IBEventHandler{} e
     | Just (IBServiceStatus x) <- fromEvent e = processServiceStatus s x
     | Just (IBResponse x@Connection{}) <- fromEvent e = processConnection s x
     | Just (IBResponse x@ManagedAccounts{}) <- fromEvent e = processManagedAccounts s x
     | Just (IBResponse x@NextValidId{}) <- fromEvent e = processNextValidId s x
     | otherwise = noEvents
 
-processServiceStatus :: IBAppService a -> ServiceStatus -> AppServiceModelEvents (IBAppService a)
-processServiceStatus svc@IBAppService{..} status = do
-  putAppService $ svc & (ibServiceStatus .~ status)
+type IBResult s = HandleEventResult SomeEvent SomeEvent (IBEventHandler s)
+
+processServiceStatus :: IBEventHandler s -> ServiceStatus -> IBResult s
+processServiceStatus svc@IBEventHandler{..} status = do
+  putEventHandler $ svc & (ibServiceStatus .~ status)
   noEvents
 
-processConnection :: IBAppService a -> IBResponse -> AppServiceModelEvents (IBAppService a)
+processConnection :: IBEventHandler a -> IBResponse -> IBResult s
 processConnection svc Connection{..} = do
-  putAppService $ svc 
+  putEventHandler $ svc 
     & (ibServerVersion .~ Just _connServerVersion) 
     & (ibServerTimeZone .~ Just _connServerTimeZone)
   noEvents
 processConnection _ _ = noEvents
 
-processManagedAccounts :: IBAppService a -> IBResponse -> AppServiceModelEvents (IBAppService a)
-processManagedAccounts svc@IBAppService{..} (ManagedAccounts accounts) = do
-  putAppService $ svc & (ibManagedAccounts .~ accounts)
+processManagedAccounts :: IBEventHandler a -> IBResponse -> IBResult s
+processManagedAccounts svc@IBEventHandler{..} (ManagedAccounts accounts) = do
+  putEventHandler $ svc & (ibManagedAccounts .~ accounts)
   noEvents
 processManagedAccounts _ _ = noEvents
 
-processNextValidId :: IBAppService a -> IBResponse -> AppServiceModelEvents (IBAppService a)
-processNextValidId svc@IBAppService{..} (NextValidId nid) = do
+processNextValidId :: IBEventHandler a -> IBResponse -> IBResult s
+processNextValidId svc@IBEventHandler{..} (NextValidId nid) = do
   let svc' = svc & (ibNextOrderId .~ Just nid)
-  putAppService svc'
+  putEventHandler svc'
   if _ibDone
     then noEvents
     else processRequests svc'
 processNextValidId _ _ = noEvents
 
-processRequests :: IBAppService a -> AppServiceModelEvents (IBAppService a)
-processRequests svc@IBAppService{..} = do
-  putAppService (svc & (ibDone .~ True))
+processRequests :: IBEventHandler a -> IBResult s
+processRequests svc@IBEventHandler{..} = do
+  putEventHandler (svc & (ibDone .~ True))
   maybe noEvents return $ do
     sv <- _ibServerVersion
     oid <- _ibNextOrderId
     let boid = BC.pack $ show oid
     return
-     [ release $ IBRequest $ RequestCurrentTime sv
-     , release $ IBRequest $ RequestContractData sv 1 conESM4
-     , release $ IBRequest $ RequestMarketData sv 2 conESM4 [] False
-     , release $ IBRequest $ RequestRealTimeBars sv 3 conESM4 5 BarBasisTrades False
-     , release $ IBRequest $ RequestHistoricalData sv 4 conESM4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
-     , release $ IBRequest $ RequestIds sv 3
-     --, release $ IBRequest $ PlaceOrder sv boid conESM4 (orderMkt oid _ibClientId Buy 1)
-     , release $ IBRequest $ RequestOpenOrders sv
-     , release $ IBRequest $ RequestAllOpenOrders sv
-     , release $ IBRequest $ RequestAutoOpenOrders sv False
-     , release $ IBRequest $ RequestManagedAccounts sv
-     , release $ IBRequest $ RequestAccountData sv True (head _ibManagedAccounts)
-     , release $ IBRequest $ RequestAccountSummary sv 5 All [NetLiquidation]
-     , release $ IBRequest $ RequestPositions sv
-     , release $ IBRequest $ RequestIds sv 3
-     , release $ IBRequest $ RequestManagedAccounts sv
-     , release $ IBRequest $ CancelAccountSummary sv 5
-     , release $ IBRequest $ RequestExecutions sv 6 newIBExecutionFilter
-     , release $ IBRequest $ RequestMarketDataType sv RealTime
-     , release $ IBRequest $ CancelPositions sv
-     , release $ IBRequest $ RequestGlobalCancel sv
+     [ release' $ IBRequest $ RequestCurrentTime sv
+     , release' $ IBRequest $ RequestContractData sv 1 conESM4
+     , release' $ IBRequest $ RequestMarketData sv 2 conESM4 [] False
+     , release' $ IBRequest $ RequestRealTimeBars sv 3 conESM4 5 BarBasisTrades False
+     , release' $ IBRequest $ RequestHistoricalData sv 4 conESM4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
+     , release' $ IBRequest $ RequestIds sv 3
+     --, release' $ IBRequest $ PlaceOrder sv boid conESM4 (orderMkt oid _ibClientId Buy 1)
+     , release' $ IBRequest $ RequestOpenOrders sv
+     , release' $ IBRequest $ RequestAllOpenOrders sv
+     , release' $ IBRequest $ RequestAutoOpenOrders sv False
+     , release' $ IBRequest $ RequestManagedAccounts sv
+     , release' $ IBRequest $ RequestAccountData sv True (head _ibManagedAccounts)
+     , release' $ IBRequest $ RequestAccountSummary sv 5 All [NetLiquidation]
+     , release' $ IBRequest $ RequestPositions sv
+     , release' $ IBRequest $ RequestIds sv 3
+     , release' $ IBRequest $ RequestManagedAccounts sv
+     , release' $ IBRequest $ CancelAccountSummary sv 5
+     , release' $ IBRequest $ RequestExecutions sv 6 newIBExecutionFilter
+     , release' $ IBRequest $ RequestMarketDataType sv RealTime
+     , release' $ IBRequest $ CancelPositions sv
+     , release' $ IBRequest $ RequestGlobalCancel sv
      ]
-
--- -----------------------------------------------------------------------------
--- Log app service
-
-data Msg = Msg String deriving (Typeable,Show)
-
-instance Event Msg
-
-data LogAppService a = LogAppService
-
-instance AppService (LogAppService a) where
-  type AppState (LogAppService a) = a
-  data AppStateAPI (LogAppService a) = LogAppServiceAPI
-  processEvent _ e = return [release . Msg $ show e]
-
-newLogAppService :: SomeAppService a
-newLogAppService = SomeAppService 0 LogAppServiceAPI LogAppService
 
 -- -----------------------------------------------------------------------------
 -- App services
 
-appServices :: [SomeAppService a]
-appServices = initialiseAppServices
-  [ newIBAppService
-  , newLogAppService
+eventHandler :: EventHandler SomeEvent SomeEvent s 
+eventHandler = initialiseEventHandler $ mconcat
+  [ newIBEventHandler 
+  , newLogEventHandler (Just . show) toEitherSomeEvent
   ]
  
 -- -----------------------------------------------------------------------------
@@ -183,4 +167,4 @@ services = do
 -- Main
 
 main :: IO ()
-main = runMVC () (asPipe $ runAppModel appServices handleEvent) services
+main = runMVC () (asPipe $ runRecursiveEventHandler eventHandler) services
