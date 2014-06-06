@@ -104,3 +104,7 @@ Activate via menu / setting dialog:
 
 Edit - Global configuration - API - Settings - Enable ActiveX and Socket Clients
 
+
+## Reference
+
+* [Haskell project skeleton](https://github.com/tfausak/haskeleton)
