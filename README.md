@@ -1,12 +1,8 @@
-interactive-brokers
-===================
-
-Interactive Brokers API
+# Interactive Brokers API
 
 *Note: this library is work in progress* 
 
-Setup
-=====
+## Setup
 
 Tested on GHC 7.6.3:
 
@@ -23,11 +19,9 @@ With [IB TWS](#ib-tws) running, start the example application which issues a ser
 
     cabal run requests
 
-IB Installation (OS X)
-======================
+## IB Installation (OS X)
 
-IB TWS
-------
+### IB TWS
 
 The IB API can be accessed via the full desktop client (TWS - Trader Workstation) or the gateway client. I have only used TWS to date but will try the gateway soon - from what I can tell it only offers a restricted subset of the native IB API (e.g. orders may not be supported) but supports the full API via FIX.
 
@@ -57,8 +51,7 @@ Make ibtws executable
 
     chmod +x ibtws
 
-IBController
-------------
+### IBController
 
 Download the [latest IBController code](https://github.com/ib-controller/ib-controller) and extract the archive in your home folder. Change to the newly created IBControllerVX-XX-X folder.
 
@@ -87,8 +80,7 @@ Edit the following entries in IBController.ini.
 
     IbDir=/Users/Chris/IBJts
 
-Testing
--------
+### Testing
 
 Make ibtws and ibc accessible e.g. via copying to a folder in your PATH.
 
@@ -100,8 +92,7 @@ Running ibc should launch IB TWS and login automatically:
 
     ibc
 
-Enabling the IB API in TWS
---------------------------
+### Enabling the IB API in TWS
 
 Activate via menu / setting dialog:
 
