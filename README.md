@@ -19,7 +19,7 @@ Tested on GHC 7.6.3:
     cabal configure -p
     cabal build
     
-With [IB TWS][IB TWS] running, start the example application which issues a series of requests to the IB API and sends the responses to stdout:
+With [IB TWS](#ib-tws) running, start the example application which issues a series of requests to the IB API and sends the responses to stdout:
 
     cabal run requests
 
