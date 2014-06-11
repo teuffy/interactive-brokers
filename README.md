@@ -8,7 +8,7 @@ Interactive Brokers API
 Setup
 =====
 
-Base is haskell-platform, GHC 7.6.3
+Tested on GHC 7.6.3:
 
     git clone https://github.com/cmahon/interactive-brokers.git
     git clone https://github.com/cmahon/mvc-service.git
@@ -18,6 +18,9 @@ Base is haskell-platform, GHC 7.6.3
     cabal install --only-dependencies -p
     cabal configure -p
     cabal build
+    
+With [IB TWS][IB TWS] running, start the example application which issues a series of requests to the IB API and sends the responses to stdout:
+
     cabal run requests
 
 IB Installation (OS X)
