@@ -34,10 +34,8 @@ import           MVC.Event
 import           MVC.Service
 import           Pipes.Core
 import qualified Pipes.Prelude                    as P
-import qualified Pipes.Safe                       as PS
 
-
-import           MVC.Socket                       hiding (Connection(..),ConnectionCommand(..),EventIn(..),EventOut(..),ServiceIn(..),ServiceOut(..),untilDone)
+import           MVC.Socket                       hiding (Connection(..),ConnectionCommand(..),EventIn(..),EventOut(..),ServiceIn(..),ServiceOut(..),untilDone,_ServiceOut,_SocketOut)
 import qualified MVC.Socket                       as K (Connection(..),ConnectionCommand(..),ServiceIn(..),ServiceOut(..))
 import           Pipes.Edge
 

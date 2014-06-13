@@ -49,7 +49,7 @@ Library
                           pipes >= 4.1.0,
                           pipes-concurrency >= 2.0.2,
                           pipes-network >= 0.6.2,
-                          pipes-safe >= 2.0.2 && < 2.1,
+                          -- pipes-safe >= 2.0.2 && < 2.1,
                           split >= 0.2.2,
                           stm >= 2.4.2,
                           time >= 1.4.0.1,
