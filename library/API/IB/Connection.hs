@@ -8,17 +8,15 @@ module API.IB.Connection (
   , ServiceOut(..)
   , IBConfiguration(..)
   , ibService
+  , cfgDebug
 
   ) where
 
 import           Control.Applicative
-import           Control.Arrow                    (arr, (>>>))
-import           Control.Concurrent               (threadDelay)
-import           Control.Concurrent.Async         (async, link, withAsync)
-import           Control.Exception
-import           Control.Lens
-import           Control.Monad                    (void)
-import           Control.Monad                    (forever, when)
+import           Control.Arrow                    (arr, (>>>),(|||))
+import           Control.Concurrent.Async         (withAsync)
+import           Control.Lens                     hiding (view)
+import           Control.Monad                    (forever,void,when)
 import qualified Control.Monad.Trans.State.Strict as S
 import           Data.ByteString                  (ByteString)
 import qualified Data.ByteString.Char8            as BC
@@ -33,10 +31,9 @@ import           MVC
 import           MVC.Event
 import           MVC.Service
 import           Pipes.Core
-import qualified Pipes.Prelude                    as P
 
 import           MVC.Socket                       hiding (Connection(..),ConnectionCommand(..),EventIn(..),EventOut(..),ServiceIn(..),ServiceOut(..),untilDone,_ServiceOut,_SocketOut)
-import qualified MVC.Socket                       as K (Connection(..),ConnectionCommand(..),ServiceIn(..),ServiceOut(..))
+import qualified MVC.Socket                       as K (ConnectionCommand(..),ServiceIn(..),ServiceOut(..))
 import           Pipes.Edge
 
 import           API.IB.Constant
@@ -117,13 +114,15 @@ makeLenses ''IBState
 
 eventHandler :: (Monad m) => Edge (S.StateT IBState m) () EventIn EventOut
 eventHandler = proc e -> case e of
-  ServiceIn (IBServiceRequest x)                    -> serviceRequestHandler -< x
-  ServiceIn (IBRequest x)                           -> ibRequestHandler -< x 
-  SocketIn (K.ServiceStatus x)                      -> socketStatusHandler -< x
-  SocketIn (K.ConnectionStatus ServiceConnected)    -> connectedHandler -< ()
-  SocketIn (K.ConnectionStatus ServiceDisconnected) -> disconnectedHandler -< ()
-  SocketIn (K.Stream x)                             -> streamInHandler -< x
-  SocketIn (K.Log x)                                -> logHandler -< x
+  ServiceIn (IBServiceRequest x)                     -> serviceRequestHandler -< x
+  ServiceIn (IBRequest x)                            -> ibRequestHandler -< x 
+  SocketIn (K.ServiceStatus x)                       -> socketStatusHandler -< x
+  SocketIn (K.ConnectionStatus ServiceConnecting)    -> ignoreHandler -< ()
+  SocketIn (K.ConnectionStatus ServiceConnected)     -> connectedHandler -< ()
+  SocketIn (K.ConnectionStatus ServiceDisconnecting) -> ignoreHandler -< ()
+  SocketIn (K.ConnectionStatus ServiceDisconnected)  -> disconnectedHandler -< ()
+  SocketIn (K.Stream x)                              -> streamInHandler -< x
+  SocketIn (K.Log x)                                 -> logHandler -< x
 
 serviceRequestHandler :: (Monad m) => Edge (S.StateT IBState m) () ServiceCommand EventOut
 serviceRequestHandler = proc e -> case e of  
@@ -137,7 +136,7 @@ startupHandler :: (Monad m) => Edge (S.StateT IBState m) () () EventOut
 startupHandler = Edge $ push ~> \_ -> do
   updateServiceStatus ServiceActivating
   ibsConnectionStatus .= ServiceConnecting
-  yield $ SocketOut $ K.ServiceCommand $ ServiceStart
+  yield $ SocketOut $ K.ServiceCommand ServiceStart
 
 shutdownHandler :: (Monad m) => Edge (S.StateT IBState m) () () EventOut
 shutdownHandler = Edge $ push ~> \_ -> do
@@ -147,7 +146,7 @@ shutdownHandler = Edge $ push ~> \_ -> do
     c <- use ibsConnectionStatus 
     if c `elem` [ServiceConnecting,ServiceConnected] then do
       ibsConnectionStatus .= ServiceDisconnecting
-      yield $ SocketOut $ K.ServiceCommand $ ServiceStop
+      yield $ SocketOut $ K.ServiceCommand ServiceStop
     else
       yield Done 
 
@@ -174,8 +173,21 @@ socketStatusHandler = proc e -> case e of
   ServiceTerminating -> logHandler -< "Service terminating handler not yet implemented"
   ServiceTerminated -> logHandler -< "Service terminated handler not yet implemented"
 
+--streamInHandler :: (Monad m) => Edge (S.StateT IBState m) () ByteString EventOut
+--streamInHandler = (Edge $ \e -> push e >-> (use ibsTimeZones >>= \tzs -> parseP (parseIBResponses tzs) (mapM_ yield))) >>> streamHandler
+
 streamInHandler :: (Monad m) => Edge (S.StateT IBState m) () ByteString EventOut
-streamInHandler = (Edge $ \e -> push e >-> (use ibsTimeZones >>= \tzs -> parseP (parseIBResponses tzs) (mapM_ yield))) >>> streamHandler
+streamInHandler = debugHandler >>> (arr id ||| (parseHandler >>> streamHandler))
+  where
+  debugHandler = Edge $ \e -> do 
+    dbg <- use (ibsConfig . cfgDebug)
+    push e >-> (forever $ do
+      e' <- await
+      when dbg $ yield $ Left $ ServiceOut $ Log e'
+      yield $ Right e')
+  parseHandler = Edge $ \e -> do
+    tzs <- use ibsTimeZones
+    push e >-> (parseP (parseIBResponses tzs) (mapM_ yield))
 
 streamHandler :: (Monad m) => Edge (S.StateT IBState m) () (Either String IBResponse) EventOut
 streamHandler = Edge $ push ~> \e -> 
@@ -214,18 +226,21 @@ disconnectedHandler = Edge $ push ~> \_ -> do
     yield $ SocketOut $ K.ConnectionCommand $ K.Connect d
   else if s == ServiceTerminating then do
     ibsConnectionStatus .= ServiceDisconnected
-    yield $ Done
-  else
-    yield $ ServiceOut $ Log "Unexpected"
-
-finishedHandler :: (Monad m) => Edge (S.StateT IBState m) () () EventOut
-finishedHandler = Edge $ push ~> \_ -> do
-  s <- use ibsServiceStatus
-  if s == ServiceTerminating then do
-    updateServiceStatus ServiceTerminated
     yield Done
   else
     yield $ ServiceOut $ Log "Unexpected"
+
+--finishedHandler :: (Monad m) => Edge (S.StateT IBState m) () () EventOut
+--finishedHandler = Edge $ push ~> \_ -> do
+--  s <- use ibsServiceStatus
+--  if s == ServiceTerminating then do
+--    updateServiceStatus ServiceTerminated
+--    yield Done
+--  else
+--    yield $ ServiceOut $ Log "Unexpected"
+
+ignoreHandler :: (Monad m) => Edge (S.StateT IBState m) () () EventOut
+ignoreHandler = Edge $ push ~> \_ -> return ()
 
 updateServiceStatus :: Monad m => ServiceStatus -> Pipe a EventOut (S.StateT IBState m) ()
 updateServiceStatus s = do

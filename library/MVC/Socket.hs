@@ -9,24 +9,18 @@ import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Exception
 import           Control.Lens              (makeLenses,makePrisms,use)
-import           Control.Monad             (forever,void, when)
+import           Control.Monad             (forever,void)
 import           Data.ByteString           (ByteString)
 import qualified Data.ByteString           as B
 import           Data.Default
 import           Data.Foldable             (forM_)
-import           Data.Maybe
-import           Data.Typeable
 import           MVC
 import           MVC.Prelude
 import           MVC.Service
 import qualified Network                   as N
 import qualified Network.Simple.TCP        as S
 import qualified Network.Socket.ByteString as NSB
-import           Pipes
-import           Pipes.Concurrent
-import           Pipes.Network.TCP         (Socket, fromSocket, toSocket)
-import qualified Pipes.Prelude             as P
-import           Text.Printf
+import           Pipes.Network.TCP         (Socket)
 
 -- -----------------------------------------------------------------------------
 -- 
@@ -144,9 +138,9 @@ connectionWriter conn status bs =
   atomically (getSocket conn) >>= maybe (return ()) (send' bs)
   where
   send' :: ByteString -> Socket -> IO ()  
-  send' bs sock = send'' sock bs >>= either (const disconnected) return  
+  send' bs' sock = send'' sock bs' >>= either (const disconnected) return  
   send'' :: Socket -> ByteString -> IO (Either SomeException ())
-  send'' sock bs = try $ S.send sock bs
+  send'' sock bs' = try $ S.send sock bs'
   disconnected :: IO ()
   disconnected = void $ atomically $ clearSocket conn >> send status False
 

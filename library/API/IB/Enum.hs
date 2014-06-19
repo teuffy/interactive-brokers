@@ -4,17 +4,18 @@ module API.IB.Enum where
 
 import           Control.Applicative
 import           Control.Monad
-import           Data.Attoparsec.Char8
-import           Data.ByteString.Lazy.Builder (Builder,stringUtf8)
-import qualified Data.IntMap                  as IntMap (IntMap, Key, fromList,
-                                                         lookup)
-import           Data.Map                     (Map)
-import qualified Data.Map                     as Map (fromList, lookup)
+import           Data.Attoparsec.ByteString.Char8
+import           Data.ByteString.Lazy.Builder     (Builder, stringUtf8)
+import qualified Data.IntMap                      as IntMap (IntMap, Key,
+                                                             fromList, lookup)
+import           Data.Map                         (Map)
+import qualified Data.Map                         as Map (fromList, lookup)
 import           Data.Maybe
 import           Data.Tuple
 
 import           API.IB.Parse
 import           API.IB.Util
+
 
 -- -----------------------------------------------------------------------------
 

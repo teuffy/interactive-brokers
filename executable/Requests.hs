@@ -2,10 +2,13 @@
 
 module Main where
 
+import           Control.Applicative   ((<$>))
+import           Control.Category      ((>>>))
 import           Control.Lens
 import qualified Data.ByteString.Char8 as BC
 import           Data.Default
 import           Data.Time
+import           Data.Typeable
 import           MVC
 import           MVC.Prelude
 import           MVC.Event             hiding (handleEvent)
@@ -20,14 +23,14 @@ import           API.IB
 refDate :: UTCTime 
 refDate = UTCTime (fromGregorian 2014 04 16) 0
 
-conESM4 :: IBContract
-conESM4 = newIBContract 
+conESU4 :: IBContract
+conESU4 = newIBContract 
   { _conSymbol = "ES"
   , _conSecType = IBFuture
-  , _conExpiry = "20140620"
+  , _conExpiry = "20140919"
   , _conExchange = "GLOBEX"
   , _conCurrency = "USD"
-  , _conLocalSymbol = "ESM4"
+  , _conLocalSymbol = "ESU4"
   , _conPrimaryExch = "GLOBEX" 
   }
 
@@ -123,12 +126,12 @@ processRequests svc@IBEventHandler{..} = do
     let boid = BC.pack $ show oid
     return
      [ release' $ IBRequest $ RequestCurrentTime sv
-     , release' $ IBRequest $ RequestContractData sv 1 conESM4
-     , release' $ IBRequest $ RequestMarketData sv 2 conESM4 [] False
-     , release' $ IBRequest $ RequestRealTimeBars sv 3 conESM4 5 BarBasisTrades False
-     , release' $ IBRequest $ RequestHistoricalData sv 4 conESM4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
+     , release' $ IBRequest $ RequestContractData sv 1 conESU4
+     , release' $ IBRequest $ RequestMarketData sv 2 conESU4 [] False
+     , release' $ IBRequest $ RequestRealTimeBars sv 3 conESU4 5 BarBasisTrades False
+     , release' $ IBRequest $ RequestHistoricalData sv 4 conESU4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
      , release' $ IBRequest $ RequestIds sv 3
-     --, release' $ IBRequest $ PlaceOrder sv boid conESM4 (orderMkt oid _ibClientId Buy 1)
+     , release' $ IBRequest $ PlaceOrder sv boid conESU4 (orderMkt oid _ibClientId Buy 1)
      , release' $ IBRequest $ RequestOpenOrders sv
      , release' $ IBRequest $ RequestAllOpenOrders sv
      , release' $ IBRequest $ RequestAutoOpenOrders sv False
@@ -146,25 +149,68 @@ processRequests svc@IBEventHandler{..} = do
      ]
 
 -- -----------------------------------------------------------------------------
+-- Command handler
+
+data CommandHandler s = CommandHandler
+
+instance HandlesEvent (CommandHandler s) where
+  type AppState (CommandHandler s) = s
+  type EventIn (CommandHandler s) = SomeEvent
+  type EventOut (CommandHandler s) = SomeEvent
+  data AppStateAPI (CommandHandler s) = CommandHandlerAPI
+  handleEvent _ e 
+    | Just ("q" :: String) <- fromEvent e = return [release' Done]
+    | otherwise = noEvents 
+
+newCommandHandler :: (a -> Maybe SomeEvent) -> (EitherSomeEvent -> Either a b) -> EventHandler a b s
+newCommandHandler ein eout = EventHandler [SomeEventHandler 0 CommandHandlerAPI ein eout CommandHandler]
+
+newCommandHandler' :: EventHandler SomeEvent SomeEvent s
+newCommandHandler' = newCommandHandler Just id
+
+-- -----------------------------------------------------------------------------
+-- Exit handler
+
+data Done = Done deriving (Show,Typeable)
+
+instance Event Done 
+
+untilDone :: Model () SomeEvent SomeEvent
+untilDone = asPipe go
+  where
+  go = await >>= checkDone
+  checkDone e
+    | Just Done <- fromEvent e = return ()
+    | otherwise = yield e >> go
+
+-- -----------------------------------------------------------------------------
 -- Event handlers
 
 eventHandler :: EventHandler SomeEvent SomeEvent s 
 eventHandler = initialiseEventHandler $ mconcat
-  [ newIBEventHandler 
-  , newLogEventHandler (Just . show) toEitherSomeEvent
+  [ newLogEventHandler (Just . show) toEitherSomeEvent
+  , newIBEventHandler 
+  , newCommandHandler'
   ]
  
+-- -----------------------------------------------------------------------------
+-- Model
+
+model :: Model () SomeEvent SomeEvent
+model = asPipe (runRecursiveEventHandler eventHandler) >>> untilDone
+
 -- -----------------------------------------------------------------------------
 -- Services
 
 services :: Managed (View SomeEvent, Controller SomeEvent)
 services = do
-  (ibV,ibC) <- toManagedMVC $ processesEvent $ toManagedService $ ibService def
+  (ibV,ibC) <- toManagedMVC $ processesEvent $ toManagedService $ ibService $ def & cfgDebug .~ True
   let stdOutV = contramap show stdoutLines
-  return (ibV <> stdOutV,ibC) 
+  stdInC <- stdinLines
+  return (ibV <> stdOutV,(SomeEvent <$> stdInC) <> ibC) 
 
 -- -----------------------------------------------------------------------------
 -- Main
 
 main :: IO ()
-main = runMVC () (asPipe $ runRecursiveEventHandler eventHandler) services
+main = runMVC () model services

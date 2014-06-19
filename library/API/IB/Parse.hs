@@ -4,7 +4,7 @@ module API.IB.Parse where
 
 import           Control.Applicative
 import           Control.Monad
-import           Data.Attoparsec.Char8
+import           Data.Attoparsec.ByteString.Char8
 import           Data.ByteString.Char8               (ByteString)
 import qualified Data.ByteString.Char8               as BC
 import           Data.Char                           (toLower)

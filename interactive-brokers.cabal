@@ -11,7 +11,7 @@ Copyright:                Chris Mahon 2014
 Category:                 API
 Build-Type:               Simple
 Stability:                Experimental
-Cabal-Version:            >= 1.10
+Cabal-Version:            >= 1.8
 Extra-Source-Files:       README.md
 
 Source-Repository         head
@@ -20,7 +20,7 @@ Source-Repository         head
 
 Library
   hs-source-dirs:         library
-  ghc-options:            -Wall -O2 -threaded
+  ghc-options:            -Wall -O2 -threaded -fprof-auto -rtsopts
   default-language:       Haskell2010
   exposed-modules:        API.IB
                           MVC.Socket
@@ -59,7 +59,7 @@ Library
 Executable requests
   main-is:                Requests.hs
   default-language:       Haskell2010
-  ghc-options:            -Wall -O2 -threaded
+  ghc-options:            -Wall -O2 -threaded -fprof-auto -rtsopts
   hs-source-dirs:         executable
   build-depends:          base >= 4 && < 5,
                           async >= 2.0.1.4,
@@ -86,7 +86,7 @@ Executable requests
 Executable sockettest
   main-is:                SocketTest.hs
   default-language:       Haskell2010
-  ghc-options:            -Wall -O2 -threaded
+  ghc-options:            -Wall -O2 -threaded -fprof-auto -rtsopts
   hs-source-dirs:         executable
   build-depends:          base >= 4 && < 5,
                           async >= 2.0.1.4,

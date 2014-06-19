@@ -7,7 +7,7 @@ import           Control.Arrow                       (second)
 import           Control.Lens                        (makeLenses)
 import           Control.Monad
 import           Currency
-import           Data.Attoparsec.Char8
+import           Data.Attoparsec.ByteString.Char8
 import           Data.ByteString                     (ByteString)
 import qualified Data.IntMap                         as IntMap (lookup)
 import           Data.List.Split                     (splitOn)
@@ -207,7 +207,7 @@ data IBResponse =
     }
   | RealTimeBar
     { _rtbReqId :: Int
-    , _rtbTime :: Int
+    , _rtbTime :: UTCTime -- Int
     , _rtbOpen :: Double
     , _rtbHigh :: Double
     , _rtbLow :: Double
@@ -557,7 +557,7 @@ parseRealTimeBar = do
   _ <- parseVersion
   RealTimeBar <$>
     parseIntField <*>
-    parseIntField <*>
+    parseUTCTimeField <*> -- parseIntField <*>
     parseDoubleField <*>
     parseDoubleField <*>
     parseDoubleField <*>
