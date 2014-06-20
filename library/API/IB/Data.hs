@@ -93,7 +93,7 @@ data IBRequest =
     { _reqServerVersion :: Int
     , _reqTickerId :: Int 
     , _reqContract :: IBContract 
-    , _reqEndDateTime :: UTCTime
+    , _reqEndDateTime :: LocalTime 
     , _reqDuration :: IBDuration 
     , _reqBarSize :: Int 
     , _reqBarBasis :: IBBarBasis 
@@ -164,8 +164,9 @@ data IBHistoricalDataItem = IBHistoricalDataItem
 data IBResponse = 
     Connection 
     { _connServerVersion :: Int
-    , _connServerTime :: UTCTime
-    , _connServerTimeZone :: TimeZone
+    , _connServerTime :: LocalTime
+    , _connServerTimeZoneDesc :: String
+    , _connServerTimeZone :: Maybe TZ
     }
   | TickPrice 
     { _tpTickerId :: Int
@@ -342,10 +343,10 @@ responses = Map.fromList $
   (AccountDownloadEndT,parseAccountDownloadEnd)
   ]
 
-parseIBResponses :: Map String TZ -> Parser [IBResponse]
-parseIBResponses tzs = 
+parseIBResponses :: Parser [IBResponse]
+parseIBResponses  = 
   parseTypedResponses <|> 
-  ((:[]) <$> parseConnection tzs)
+  ((:[]) <$> parseConnection)
 
 parseResponseType :: Parser Int
 parseResponseType = parseIntField
@@ -357,15 +358,13 @@ parseTypedResponses = do
     Nothing -> fail ""
     Just t -> fromMaybe (fail "") (Map.lookup t responses)
 
-parseConnection :: Map String TZ -> Parser IBResponse
-parseConnection tzs = do
+parseConnection :: Parser IBResponse
+parseConnection = do
   sv <- parseField decimal
   d <- parseDayYYYYMMDD "" <* skipSpace
   t <- parseTimeOfDayHHMMSS ":" <* skipSpace
-  tz <- parseTZ tzs <* char sepC
-  let u = localTimeToUTCTZ tz (LocalTime d t)
-  let tz' = timeZoneForUTCTime tz u
-  return $ Connection sv u tz'
+  tz <- parseStringField
+  return $ Connection sv (LocalTime d t) tz Nothing
 
 parseVersion :: Parser Int
 parseVersion = parseIntField

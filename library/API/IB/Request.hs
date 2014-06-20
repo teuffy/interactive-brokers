@@ -355,7 +355,7 @@ createRequestManagedAccountsMsg _ = return $ ibMsg 1 ReqManagedAccountsT []
 
 -- -----------------------------------------------------------------------------
 
-createRequestHistoricalDataMsg :: Int -> Int -> IBContract -> UTCTime -> IBDuration -> Int -> IBBarBasis -> Bool -> IBFormatDate -> Maybe ByteString
+createRequestHistoricalDataMsg :: Int -> Int -> IBContract -> LocalTime -> IBDuration -> Int -> IBBarBasis -> Bool -> IBFormatDate -> Maybe ByteString
 createRequestHistoricalDataMsg sversion tickerid IBContract{..} enddatetime duration@(IBDuration i u) barsize barbasis userth formatdate 
   | i <= 0 = Nothing
   | i > 1 && u == Y = Nothing
@@ -377,7 +377,7 @@ createRequestHistoricalDataMsg sversion tickerid IBContract{..} enddatetime dura
         ]
       , [ stringUtf8 _conTradingClass | sversion >= minServerVersionTradingClass]
       , [ intDec $ boolBinary _conIncludeExpired,
-          stringUtf8 $ formatTime defaultTimeLocale "%Y%m%d %H:%M:%S" enddatetime,
+          stringUtf8 $ formatTime defaultTimeLocale "%Y%m%d %H:%M:%S" enddatetime, 
           stringUtf8 $ formatSeconds barsize, 
           bEncode duration,
           intDec $ boolBinary userth,

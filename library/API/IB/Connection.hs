@@ -23,7 +23,7 @@ import qualified Data.ByteString.Char8            as BC
 import           Data.Default
 import           Data.Map                         (Map)
 import qualified Data.Map                         as Map (elems, empty,
-                                                          fromList, keys)
+                                                          fromList, keys, lookup)
 import           Data.Monoid                      hiding (Last)
 import           Data.Time.Zones
 import           Data.Typeable
@@ -173,21 +173,16 @@ socketStatusHandler = proc e -> case e of
   ServiceTerminating -> logHandler -< "Service terminating handler not yet implemented"
   ServiceTerminated -> logHandler -< "Service terminated handler not yet implemented"
 
---streamInHandler :: (Monad m) => Edge (S.StateT IBState m) () ByteString EventOut
---streamInHandler = (Edge $ \e -> push e >-> (use ibsTimeZones >>= \tzs -> parseP (parseIBResponses tzs) (mapM_ yield))) >>> streamHandler
-
 streamInHandler :: (Monad m) => Edge (S.StateT IBState m) () ByteString EventOut
 streamInHandler = debugHandler >>> (arr id ||| (parseHandler >>> streamHandler))
   where
   debugHandler = Edge $ \e -> do 
     dbg <- use (ibsConfig . cfgDebug)
-    push e >-> (forever $ do
+    push e >-> forever (do
       e' <- await
       when dbg $ yield $ Left $ ServiceOut $ Log e'
       yield $ Right e')
-  parseHandler = Edge $ \e -> do
-    tzs <- use ibsTimeZones
-    push e >-> (parseP (parseIBResponses tzs) (mapM_ yield))
+  parseHandler = Edge $ \e -> push e >-> parseP parseIBResponses (mapM_ yield)
 
 streamHandler :: (Monad m) => Edge (S.StateT IBState m) () (Either String IBResponse) EventOut
 streamHandler = Edge $ push ~> \e -> 
@@ -195,20 +190,23 @@ streamHandler = Edge $ push ~> \e ->
     Left b -> 
       yield $ ServiceOut $ Log $ BC.append "Cannot parse ib response: " $ BC.pack b
     Right r -> do
-      case r of
-        Connection{} -> do
+      r' <- case r of
+        Connection{..} -> do
           ibsConnectionStatus .= ServiceConnected
           cid <- use (ibsConfig . cfgClientId)
           yield $ SocketOut $ K.Send $ createClientIdMsg cid
+          tzs <- use ibsTimeZones
+          return $ r & connServerTimeZone .~ Map.lookup _connServerTimeZoneDesc tzs
         ManagedAccounts acs -> do
           ibsAccounts .= acs 
-          return ()
+          return r
         NextValidId oid -> do
           ibsNextOrderId .= Just oid 
           s <- use ibsServiceStatus
           when (s == ServiceActivating) $ updateServiceStatus ServiceActive
-        _ -> return ()
-      yield $ ServiceOut $ IBResponse r
+          return r
+        _ -> return r
+      yield $ ServiceOut $ IBResponse r'
 
 logHandler :: (Monad m) => Edge (S.StateT IBState m) () ByteString EventOut
 logHandler = arr (ServiceOut . Log)

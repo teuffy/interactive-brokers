@@ -8,6 +8,7 @@ import           Control.Lens
 import qualified Data.ByteString.Char8 as BC
 import           Data.Default
 import           Data.Time
+import           Data.Time.Zones
 import           Data.Typeable
 import           MVC
 import           MVC.Prelude
@@ -20,8 +21,9 @@ import           API.IB
 -- -----------------------------------------------------------------------------
 -- Reference data
 
-refDate :: UTCTime 
-refDate = UTCTime (fromGregorian 2014 04 16) 0
+refDate :: LocalTime 
+refDate = LocalTime (fromGregorian 2014 06 18) (TimeOfDay 0 0 (toEnum 0))
+
 
 conESU4 :: IBContract
 conESU4 = newIBContract 
@@ -54,7 +56,7 @@ data IBEventHandler a = IBEventHandler
   { _ibDone :: Bool
   , _ibClientId :: Int
   , _ibServerVersion :: Maybe Int
-  , _ibServerTimeZone :: Maybe TimeZone
+  , _ibServerTimeZone :: Maybe TZ
   , _ibServiceStatus :: ServiceStatus
   , _ibManagedAccounts :: [String]
   , _ibNextRequestId :: Maybe Int
@@ -98,7 +100,7 @@ processConnection :: IBEventHandler a -> IBResponse -> IBResult s
 processConnection svc Connection{..} = do
   putEventHandler $ svc 
     & (ibServerVersion .~ Just _connServerVersion) 
-    & (ibServerTimeZone .~ Just _connServerTimeZone)
+    & (ibServerTimeZone .~ _connServerTimeZone)
   noEvents
 processConnection _ _ = noEvents
 
@@ -125,13 +127,14 @@ processRequests svc@IBEventHandler{..} = do
     oid <- _ibNextOrderId
     let boid = BC.pack $ show oid
     return
-     [ release' $ IBRequest $ RequestCurrentTime sv
+     [ 
+       release' $ IBRequest $ RequestCurrentTime sv
      , release' $ IBRequest $ RequestContractData sv 1 conESU4
      , release' $ IBRequest $ RequestMarketData sv 2 conESU4 [] False
      , release' $ IBRequest $ RequestRealTimeBars sv 3 conESU4 5 BarBasisTrades False
      , release' $ IBRequest $ RequestHistoricalData sv 4 conESU4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
      , release' $ IBRequest $ RequestIds sv 3
-     , release' $ IBRequest $ PlaceOrder sv boid conESU4 (orderMkt oid _ibClientId Buy 1)
+     --, release' $ IBRequest $ PlaceOrder sv boid conESU4 (orderMkt oid _ibClientId Buy 1)
      , release' $ IBRequest $ RequestOpenOrders sv
      , release' $ IBRequest $ RequestAllOpenOrders sv
      , release' $ IBRequest $ RequestAutoOpenOrders sv False
@@ -145,7 +148,7 @@ processRequests svc@IBEventHandler{..} = do
      , release' $ IBRequest $ RequestExecutions sv 6 newIBExecutionFilter
      , release' $ IBRequest $ RequestMarketDataType sv RealTime
      , release' $ IBRequest $ CancelPositions sv
-     , release' $ IBRequest $ RequestGlobalCancel sv
+     --, release' $ IBRequest $ RequestGlobalCancel sv
      ]
 
 -- -----------------------------------------------------------------------------
