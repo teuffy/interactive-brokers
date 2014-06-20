@@ -8,6 +8,7 @@ module API.IB.Connection (
   , ServiceOut(..)
   , IBConfiguration(..)
   , ibService
+  , withIB
   , cfgDebug
 
   ) where
@@ -302,4 +303,42 @@ ibService conf@IBConfiguration{..} = do
         runMVC initialState model external
 
     withAsync io $ \_ -> k (Service vServiceIn cServiceOut) <* sealAll
+
+-----------------------------------------------------------------------------
+
+type IBServiceInOut = Either ServiceIn ServiceOut 
+
+withIB :: IBConfiguration -> (IBService -> IO x) -> IO x
+withIB conf k = do
+
+  (vServiceIn , cServiceIn , sServiceIn)  <- spawn' Unbounded
+  (vServiceOut, cServiceOut, sServiceOut) <- spawn' Unbounded
+
+  let
+
+    sealAll :: IO ()
+    sealAll = atomically $ sServiceIn >> sServiceOut
+
+    external :: Managed (View IBServiceInOut, Controller IBServiceInOut)
+    external = do
+      (ibV,ibC) <- toManagedMVC $ toManagedService $ ibService conf
+      let 
+        view = mconcat 
+          [ handles _Left ibV
+          , handles _Right (asSink $ void . atomically . send vServiceOut)
+          ]
+        controller = mconcat 
+          [ Left <$> asInput cServiceIn
+          , Right <$> ibC
+          ]
+      return (view,controller)
+
+    io = runMVC () (asPipe cat) external
+
+  withAsync io $ \_ -> k (Service vServiceIn cServiceOut) <* sealAll
+
+
+
+
+
 
