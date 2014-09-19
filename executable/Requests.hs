@@ -23,17 +23,16 @@ import           API.IB
 -- Reference data
 
 refDate :: LocalTime 
-refDate = LocalTime (fromGregorian 2014 06 18) (TimeOfDay 0 0 (toEnum 0))
+refDate = LocalTime (fromGregorian 2014 09 18) (TimeOfDay 0 0 (toEnum 0))
 
-
-conESU4 :: IBContract
-conESU4 = newIBContract 
+conESZ4 :: IBContract
+conESZ4 = newIBContract 
   { _conSymbol = "ES"
   , _conSecType = IBFuture
-  , _conExpiry = "20140919"
+  , _conExpiry = "20141219"
   , _conExchange = "GLOBEX"
   , _conCurrency = "USD"
-  , _conLocalSymbol = "ESU4"
+  , _conLocalSymbol = "ESZ4"
   , _conPrimaryExch = "GLOBEX" 
   }
 
@@ -130,12 +129,12 @@ processRequests svc@IBEventHandler{..} = do
     return
      [ 
        release' $ IBRequest $ RequestCurrentTime sv
-     , release' $ IBRequest $ RequestContractData sv 1 conESU4
-     , release' $ IBRequest $ RequestMarketData sv 2 conESU4 [] False
-     , release' $ IBRequest $ RequestRealTimeBars sv 3 conESU4 5 BarBasisTrades False
-     , release' $ IBRequest $ RequestHistoricalData sv 4 conESU4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
+     , release' $ IBRequest $ RequestContractData sv 1 conESZ4
+     , release' $ IBRequest $ RequestMarketData sv 2 conESZ4 [] False
+     , release' $ IBRequest $ RequestRealTimeBars sv 3 conESZ4 5 BarBasisTrades False
+     , release' $ IBRequest $ RequestHistoricalData sv 4 conESZ4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
      , release' $ IBRequest $ RequestIds sv 3
-     --, release' $ IBRequest $ PlaceOrder sv boid conESU4 (orderMkt oid _ibClientId Buy 1)
+     --, release' $ IBRequest $ PlaceOrder sv boid conESZ4 (orderMkt oid _ibClientId Buy 1)
      , release' $ IBRequest $ RequestOpenOrders sv
      , release' $ IBRequest $ RequestAllOpenOrders sv
      , release' $ IBRequest $ RequestAutoOpenOrders sv False

@@ -6,6 +6,7 @@ profiling
 *.chi
 *.chs.h
 .virtualenv
+.hdevtools.sock
 .hsenv
 .cabal-sandbox/
 cabal.sandbox.config

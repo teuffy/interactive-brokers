@@ -2,9 +2,15 @@
 To Do List
 ==========
 
+### Documentation
+
+* README: add list of supported and unsupported messages
+* Haddocks markup
+
 ### Defects
 
-* TBC
+* Build on GHC 7.8.x
+* Test pico issue on GHC 7.8.x
 
 ### New features
 
@@ -12,14 +18,16 @@ To Do List
 * Add a cfgConnectionTimeOut setting?
 * Command terminal (e.g. use Haskeline)
 * Monadic interface
+* Simple interface (connection object)
 * Remaining IB requests and responses (summarise here from list in Enum.hs)
+* Higher level API for requests (e.g. create order, including attached orders, oco orders, etc.)
 
 ### Design
 
-* Refactor Edge to ListT
+* Refactor Edge to ListT (use state for partial parse)
 * Async housekeeping audit
 * Config read only (vs in 'mutable' state at present)?
-* Some data unncecessary in IB connection state vs app service state (e.g. accounts, next valid id, etc?) 
+* Some data unncecessary in IB connection state (e.g. accounts, next valid id, etc?) 
 * BASE currency (in AccountValue msg) solution - was in currency enum in hq.data.currency
 
 ### Test suite 
@@ -30,7 +38,9 @@ To Do List
 
 ### Data 
 
+* Order id's to Int (e.g. IBRequest/PlaceOrder.reqOrderId)
 * More typing (enum,utctime,etc.) instead of strings/bytestrings (e.g. in contract)
+* Principled consistent use of bytestring/string/text (github issue #1)
 * IBOrder: into multiple data types
 * IBOrder: maybe's for bools
 * IBOrder: decomposition may allow a single maybe for related fields
@@ -49,10 +59,13 @@ To Do List
 
 ### Requests
 
-* Create message functions to return Either with failure reason?
+* Create message functions to return Either with string/typed failure reason? Or use error "<reason>"?
+* Use typing to prevent some of the error conditions (e.g. bar size)
 
 ### Parsing
 
+* Use thyme library?
+* Use ParseTime intances?
 * FromIB class for parsing?
 * Review fields for possible signed / blank / default parsing requirement
 * IBContract: complete refactoring to use field level parsers
@@ -65,6 +78,7 @@ To Do List
 * Complete model (e.g. checking and updating state)
 * Tidy up Connection code, consistent use of STM vs IO
 * Streamline verbose code e.g. atomically
+* Secure SSL option
 * Tests and benchmarks
 
 
