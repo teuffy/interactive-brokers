@@ -78,9 +78,6 @@ bMsgConcat sepC = return . bMake sepC . concat
 
 -----------------------------------------------------------------------------
 
-rights :: (Monad m) => Pipe (Either a b) b m () 
-rights = await >>= either (const $ return ()) ((>> rights) . yield) 
-
 parseP :: (Monad m) => Parser a -> (a -> Producer' b m ()) -> Pipe ByteString (Either String b) m r 
 parseP parser f = next
   where
@@ -90,38 +87,6 @@ parseP parser f = next
   process (Fail i _ e) = yield (Left $ printf "Error [%s] Input [%s]" e (BC.unpack i)) >> next
   process (Partial c) = continue c
   process (Done t r) = (f r >-> P.map Right) >> if BC.null t then next else parse' t
-
------------------------------------------------------------------------------
-
-parseFixedNum :: (Read a, Num a) => Int -> Parser a
-parseFixedNum n = read <$> count n digit
-
-parseOptionalString :: ByteString -> Parser ByteString  
-parseOptionalString s = option "" (string s)
-
-parseDayYYYYMMDD :: ByteString -> Parser Day
-parseDayYYYYMMDD sep = do
-  d <- fromGregorianValid <$>
-    parseFixedNum 4 <*>
-    (parseOptionalString sep *> parseFixedNum 2) <*>
-    (parseOptionalString sep *> parseFixedNum 2)
-  maybe (fail "") return d
-
-parseTimeOfDayHHMMSS :: ByteString -> Parser TimeOfDay
-parseTimeOfDayHHMMSS sep = do
-  t <- makeTimeOfDayValid <$>
-    parseFixedNum 2 <*>
-    (parseOptionalString sep *> parseFixedNum 2) <*>
-    (parseOptionalString sep *> parseFixedNum 2) 
-  maybe (fail "") return t
-
-parseTimeOfDayHHMM :: ByteString -> Parser TimeOfDay
-parseTimeOfDayHHMM sep = do
-  t <- makeTimeOfDayValid <$>
-    parseFixedNum 2 <*>
-    (parseOptionalString sep *> parseFixedNum 2) <*>
-    pure 0 
-  maybe (fail "") return t
 
 -----------------------------------------------------------------------------
 

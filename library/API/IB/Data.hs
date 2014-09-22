@@ -361,8 +361,8 @@ parseTypedResponses = do
 parseConnection :: Parser IBResponse
 parseConnection = do
   sv <- parseField decimal
-  d <- parseDayYYYYMMDD "" <* skipSpace
-  t <- parseTimeOfDayHHMMSS ":" <* skipSpace
+  d <- parseDayYYYYMMDD <* skipSpace
+  t <- parseTimeOfDayHHMMSS <* skipSpace
   tz <- parseStringField
   return $ Connection sv (LocalTime d t) tz Nothing
 
@@ -518,8 +518,8 @@ parseHistoricalData = do
 parseHistoricalDataItem :: Parser IBHistoricalDataItem
 parseHistoricalDataItem = 
   IBHistoricalDataItem <$>
-    (parseDayYYYYMMDD "" <* skipSpace) <*>
-    (parseTimeOfDayHHMMSS ":" <* char sepC) <*>
+    (parseDayYYYYMMDD <* skipSpace) <*>
+    (parseTimeOfDayHHMMSS <* char sepC) <*>
     parseDoubleField <*>
     parseDoubleField <*>
     parseDoubleField <*>
@@ -622,7 +622,7 @@ parseAccountValue = do
   AccountValue <$>
     parseField parseIBTag <*>
     parseStringField <*>
-    parseMaybeEmptyField stringToEnum <*>
+    parseMaybeEmptyField parseStringToEnum <*>
     if v >= 2 then parseByteStringField else return ""
 
 parsePortfolioValue :: Parser IBResponse
@@ -653,7 +653,7 @@ parseAccountUpdateTime :: Parser IBResponse
 parseAccountUpdateTime = do
   _ <- parseVersion
   AccountUpdateTime <$>
-    parseField (parseTimeOfDayHHMM ":")
+    parseField parseTimeOfDayHHMM
 
 parseExecutionData :: Parser IBResponse
 parseExecutionData = do
@@ -675,8 +675,8 @@ parseExecutionData = do
   let execution = newIBExecution
   execId' <- parseByteStringField
   --execTime' <- parseStringField
-  execDay' <- parseDayYYYYMMDD "" <* skipSpace
-  execTime' <- parseTimeOfDayHHMMSS ":" <* char sepC
+  execDay' <- parseDayYYYYMMDD <* skipSpace
+  execTime' <- parseTimeOfDayHHMMSS <* char sepC
   execAcctNumber' <- parseStringField
   execExchange' <- parseStringField
   --execSide' <- parseStringField  

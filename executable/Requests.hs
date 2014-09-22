@@ -5,7 +5,7 @@ module Main where
 import           Control.Applicative   ((<$>))
 import           Control.Category      ((>>>))
 import           Control.Lens
-import           Control.Monad         (forever)
+--import           Control.Monad         (forever)
 import qualified Data.ByteString.Char8 as BC
 import           Data.Default
 import           Data.Time

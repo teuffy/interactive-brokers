@@ -41,6 +41,7 @@ To Do List
 * Order id's to Int (e.g. IBRequest/PlaceOrder.reqOrderId)
 * More typing (enum,utctime,etc.) instead of strings/bytestrings (e.g. in contract)
 * Principled consistent use of bytestring/string/text (github issue #1)
+* Scientific/Decimal solution for decimal numbers (github issue #3)
 * IBOrder: into multiple data types
 * IBOrder: maybe's for bools
 * IBOrder: decomposition may allow a single maybe for related fields
@@ -61,6 +62,7 @@ To Do List
 
 * Create message functions to return Either with string/typed failure reason? Or use error "<reason>"?
 * Use typing to prevent some of the error conditions (e.g. bar size)
+* Lazy vs strict bytestring (github issue #2)
 
 ### Parsing
 

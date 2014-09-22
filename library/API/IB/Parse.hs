@@ -1,4 +1,6 @@
-{-# LANGUAGE OverloadedStrings,RankNTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE RankNTypes #-}
 
 module API.IB.Parse where
 
@@ -7,10 +9,10 @@ import           Control.Monad
 import           Data.Attoparsec.ByteString.Char8
 import           Data.ByteString.Char8               (ByteString)
 import qualified Data.ByteString.Char8               as BC
-import           Data.Char                           (toLower)
 import           Data.Map                            (Map)
 import qualified Data.Map                            as Map (lookup)
 import           Data.Maybe
+import           Data.Monoid                         (mconcat)
 import           Data.String
 import           Data.Time
 import           Data.Time.Clock.POSIX
@@ -26,24 +28,26 @@ parseField :: Parser a -> Parser a
 parseField p = p <* char sepC
 
 parseEmptyField :: Parser ()
-parseEmptyField = return () <* parseField (string "")
+parseEmptyField = char sepC *> return ()
 
-parseMaybeEmptyField :: (String -> Maybe a) -> Parser (Maybe a)
-parseMaybeEmptyField = parseField . parseMaybeEmpty
+parseMaybeEmptyField :: Parser a -> Parser (Maybe a) 
+parseMaybeEmptyField p = mconcat
+  [ parseEmptyField *> return Nothing
+  , Just <$> parseField p
+  , parseStringField *> return Nothing
+  ]
 
 parseIntField :: Parser Int
 parseIntField = parseField decimal
 
 parseIntField' :: Parser Int
-parseIntField' = do
-  s <- parseStringField
-  return $ if s == "" then 0 else read s 
+parseIntField' = (parseEmptyField *> return 0) <|> parseIntField
 
 parseSignedIntField :: Parser Int
 parseSignedIntField = parseField $ signed decimal
 
 parseMaybeIntField :: Parser (Maybe Int)
-parseMaybeIntField = parseMaybeEmptyField $ Just . read 
+parseMaybeIntField = parseMaybeEmptyField decimal
 
 parseByteStringField :: Parser ByteString
 parseByteStringField = parseField parseByteString
@@ -52,7 +56,7 @@ parseStringField :: Parser String
 parseStringField = parseField parseString
 
 parseMaybeStringField :: Parser (Maybe String)
-parseMaybeStringField = parseMaybeEmptyField Just
+parseMaybeStringField = parseMaybeEmptyField parseString
 
 parseDoubleField :: Parser Double
 parseDoubleField = parseField double
@@ -63,19 +67,24 @@ parseDoubleField' = do
   return $ if s == "" then 0.0 else read s 
 
 parseMaybeDoubleField :: Parser (Maybe Double)
-parseMaybeDoubleField = parseMaybeEmptyField $ Just . read 
+parseMaybeDoubleField = parseMaybeEmptyField double
 
 parseMaybeDoubleField' :: Parser (Maybe Double)
-parseMaybeDoubleField' = parseMaybeEmptyField $ \s -> let d = read s in if show d == "Infinity" then Nothing else Just d 
+parseMaybeDoubleField' = discardInfinity <$> parseMaybeDoubleField
+  where
+  discardInfinity :: Maybe Double -> Maybe Double
+  discardInfinity md 
+    | Just d <- md, isInfinite d  = Nothing
+    | otherwise = md
 
 parseSignedDoubleField :: Parser Double
 parseSignedDoubleField = parseField $ signed double
 
 parseBoolBinaryField :: Parser Bool
-parseBoolBinaryField = fmap ('1' ==) $ parseField (char '0') <|> parseField (char '1')
+parseBoolBinaryField = parseField $ (char '0' *> return False) <|> (char '1' *> return True)
 
 parseBoolStringField :: Parser Bool
-parseBoolStringField = (\v -> "true" == map toLower (BC.unpack v)) <$> parseField (string "True" <|> string "true" <|> string "False" <|> string "false")
+parseBoolStringField = parseField $ (stringCI "false" *> return False) <|> (stringCI "true" *> return True)
 
 parseUTCTimeField :: Parser UTCTime
 parseUTCTimeField = (posixSecondsToUTCTime . realToFrac) <$> parseIntField 
@@ -84,17 +93,10 @@ parseByteString :: Parser ByteString
 parseByteString = takeWhile (/= sepC)
 
 parseString :: Parser String
-parseString = BC.unpack <$> takeWhile (/= sepC)
+parseString = BC.unpack <$> parseByteString
 
 parseMaybe :: Parser a -> Parser (Maybe a)
-parseMaybe p = 
-  Just <$> p <|>
-  return Nothing <* parseStringField
-
-parseMaybeEmpty :: (String -> Maybe a) -> Parser (Maybe a)
-parseMaybeEmpty f = do
-  s <- parseString
-  return $ if s == "" then Nothing else f s 
+parseMaybe p = (Just <$> p) <|> (parseStringField *> return Nothing)
 
 parseStringToEnum :: (Read a) => Parser a
 parseStringToEnum = do
@@ -102,6 +104,31 @@ parseStringToEnum = do
   case stringToEnum s of
     Just s' -> return s'
     Nothing -> fail ""
+
+parseDayYYYYMMDD :: Parser Day
+parseDayYYYYMMDD = decimal >>= maybe empty return . decode
+  where
+  decode i =
+    let year  = i `quot` 10000
+        month = fromIntegral $ (i - year * 10000) `quot` 100
+        day   = fromIntegral $ i `mod` 100
+    in fromGregorianValid year month day
+
+parseTimeOfDayHHMMSS :: Parser TimeOfDay
+parseTimeOfDayHHMMSS = do
+  t <- makeTimeOfDayValid <$>
+    (decimal <* char ':') <*>
+    (decimal <* char ':') <*>
+    (fromInteger <$> decimal)
+  maybe empty return t
+
+parseTimeOfDayHHMM :: Parser TimeOfDay
+parseTimeOfDayHHMM = do
+  t <- makeTimeOfDayValid <$>
+    (decimal <* char ':') <*>
+    decimal <*>
+    pure 0
+  maybe empty return t
 
 parseTZ :: Map String TZ -> Parser TZ
 parseTZ tzs = do
