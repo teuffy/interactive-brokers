@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternGuards #-}
+--{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RankNTypes #-}
 
 module API.IB.Parse where
@@ -62,20 +62,15 @@ parseDoubleField :: Parser Double
 parseDoubleField = parseField double
 
 parseDoubleField' :: Parser Double
-parseDoubleField' = do
-  s <- parseStringField
-  return $ if s == "" then 0.0 else read s 
+parseDoubleField' = (parseEmptyField *> return 0) <|> parseDoubleField
 
 parseMaybeDoubleField :: Parser (Maybe Double)
 parseMaybeDoubleField = parseMaybeEmptyField double
 
 parseMaybeDoubleField' :: Parser (Maybe Double)
-parseMaybeDoubleField' = discardInfinity <$> parseMaybeDoubleField
-  where
-  discardInfinity :: Maybe Double -> Maybe Double
-  discardInfinity md 
-    | Just d <- md, isInfinite d  = Nothing
-    | otherwise = md
+parseMaybeDoubleField' = 
+  (string "1.7976931348623157E308" *> return Nothing) <|>
+  parseMaybeDoubleField
 
 parseSignedDoubleField :: Parser Double
 parseSignedDoubleField = parseField $ signed double
@@ -105,6 +100,9 @@ parseStringToEnum = do
     Just s' -> return s'
     Nothing -> fail ""
 
+parseStringToEnumField :: (Read a) => Parser a
+parseStringToEnumField = parseField parseStringToEnum
+
 parseDayYYYYMMDD :: Parser Day
 parseDayYYYYMMDD = decimal >>= maybe empty return . decode
   where
@@ -113,6 +111,9 @@ parseDayYYYYMMDD = decimal >>= maybe empty return . decode
         month = fromIntegral $ (i - year * 10000) `quot` 100
         day   = fromIntegral $ i `mod` 100
     in fromGregorianValid year month day
+
+parseDayYYYYMMDD' :: Parser (Maybe Day)
+parseDayYYYYMMDD' = parseMaybeEmptyField parseDayYYYYMMDD
 
 parseTimeOfDayHHMMSS :: Parser TimeOfDay
 parseTimeOfDayHHMMSS = do

@@ -22,13 +22,17 @@ To Do List
 * Remaining IB requests and responses (summarise here from list in Enum.hs)
 * Higher level API for requests (e.g. create order, including attached orders, oco orders, etc.)
 
+### Build
+
+* Cabal file: standardise package dependency format to best practice
+
 ### Design
 
 * Refactor Edge to ListT (use state for partial parse)
 * Async housekeeping audit
 * Config read only (vs in 'mutable' state at present)?
 * Some data unncecessary in IB connection state (e.g. accounts, next valid id, etc?) 
-* BASE currency (in AccountValue msg) solution - was in currency enum in hq.data.currency
+* BASE currency (in AccountValue msg) solution
 
 ### Test suite 
 
@@ -42,10 +46,12 @@ To Do List
 * More typing (enum,utctime,etc.) instead of strings/bytestrings (e.g. in contract)
 * Principled consistent use of bytestring/string/text (github issue #1)
 * Scientific/Decimal solution for decimal numbers (github issue #3)
+* Review currency type
 * IBOrder: into multiple data types
 * IBOrder: maybe's for bools
 * IBOrder: decomposition may allow a single maybe for related fields
 * Consistent use of IB prefix for data type names (e.g. IBRequest and IBResponse constructors and fields)
+* 
 
 ### Event Processor
 
@@ -63,16 +69,15 @@ To Do List
 * Create message functions to return Either with string/typed failure reason? Or use error "<reason>"?
 * Use typing to prevent some of the error conditions (e.g. bar size)
 * Lazy vs strict bytestring (github issue #2)
+* Remove req historical data option to specify date format - just use one of the two options internally
 
 ### Parsing
 
-* Use thyme library?
-* Use ParseTime intances?
 * FromIB class for parsing?
 * Review fields for possible signed / blank / default parsing requirement
 * IBContract: complete refactoring to use field level parsers
 * TickPrice: parse also generates a TickSize but latter seems to also stream separately - confirm/remove duplication? Have commented out TickSize generation from TickPrice parser.
-* Add error message to fail "" statements
+* Add error message to fail "" (and empty?) statements
 
 ### Socket service
 

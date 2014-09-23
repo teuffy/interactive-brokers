@@ -1,12 +1,12 @@
-{-# LANGUAGE OverloadedStrings,RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module API.IB.Request where
 
 import           Data.ByteString.Char8              (ByteString)
 import qualified Data.ByteString.Char8              as BC
-import           Data.ByteString.Lazy.Builder       (Builder, byteString,
-                                                     stringUtf8)
-import           Data.ByteString.Lazy.Builder.ASCII (doubleDec, intDec)
+import           Data.ByteString.Lazy.Builder       (Builder, stringUtf8)
+import           Data.ByteString.Lazy.Builder.ASCII (intDec)
 import qualified Data.Map                           as Map (size, toList)
 import           Data.Maybe
 import           Data.Monoid                        hiding (All, Product)
@@ -28,7 +28,13 @@ ibMsg version reqtype builders = bMake sepC $ bEncode reqtype : intDec version :
 
 ibMsgConcat :: Int -> IBRequestType -> [[Builder]] -> ByteString
 ibMsgConcat version reqtype builders = ibMsg version reqtype $ concat builders   
-  
+
+ibFormatDay :: FormatTime t => t -> String
+ibFormatDay = formatTime defaultTimeLocale "%Y%m%d"
+
+ibFormatTime :: FormatTime t => t -> String
+ibFormatTime = formatTime defaultTimeLocale "%Y%m%d %T"
+
 -- -----------------------------------------------------------------------------
 -- Message Factory
 
@@ -73,13 +79,13 @@ createRequestMarketDataMsg sversion tickerid IBContract{..} genticktypes snapsho
       , intDec _conId
       , stringUtf8 _conSymbol
       , bEncode _conSecType
-      , stringUtf8 _conExpiry
-      , doubleDec _conStrike
-      , stringUtf8 _conRight
-      , stringUtf8 _conMultiplier
-      , stringUtf8 _conExchange
-      , stringUtf8 _conPrimaryExch
-      , stringUtf8 _conCurrency
+      , stringUtf8 (maybe "" ibFormatDay _conExpiry)
+      , buildDecimal _conStrike
+      , stringUtf8 (maybe "" encode _conRight)
+      , maybe bEmpty buildDecimal _conMultiplier
+      , bEncode _conExchange
+      , bEncode _conPrimaryExch
+      , stringUtf8 (show _conCurrency)
       , stringUtf8 _conLocalSymbol
       ]
     , [ stringUtf8 _conTradingClass | sversion >= minServerVersionTradingClass]
@@ -96,32 +102,32 @@ createCancelMarketDataMsg _ tickerid = return $ ibMsg 1 CancelMktDataT [intDec t
 
 -- -----------------------------------------------------------------------------
 
-createPlaceOrderMsg :: Int -> ByteString -> IBContract -> IBOrder -> Maybe ByteString
+createPlaceOrderMsg :: Int -> Int -> IBContract -> IBOrder -> Maybe ByteString
 createPlaceOrderMsg sversion orderid IBContract{..} IBOrder{..} =
   return $ ibMsgConcat 40 PlaceOrderT
-    [ [ byteString orderid
+    [ [ intDec orderid
       , intDec _conId
       , stringUtf8 _conSymbol
       , bEncode _conSecType
-      , stringUtf8 _conExpiry
-      , doubleDec _conStrike
-      , stringUtf8 _conRight
-      , stringUtf8 _conMultiplier
-      , stringUtf8 _conExchange
-      , stringUtf8 _conPrimaryExch
-      , stringUtf8 _conCurrency
+      , stringUtf8 (maybe "" ibFormatDay _conExpiry)
+      , buildDecimal _conStrike
+      , stringUtf8 (maybe "" encode _conRight)
+      , maybe bEmpty buildDecimal _conMultiplier
+      , bEncode _conExchange
+      , bEncode _conPrimaryExch
+      , stringUtf8 (show _conCurrency)
       , stringUtf8 _conLocalSymbol
       ]
     , [ stringUtf8 _conTradingClass | sversion >= minServerVersionTradingClass
       ]
-    , [ stringUtf8 _conSecIdType
+    , [ stringUtf8 (maybe "" encode _conSecIdType)
       , stringUtf8 _conSecId
       ]
     , [ bEncode _orderAction
       , intDec _orderTotalQuantity
       , bEncode _orderType
-      , maybe bEmpty doubleDec _orderLmtPrice
-      , maybe bEmpty doubleDec _orderAuxPrice
+      , maybe bEmpty buildDecimal _orderLmtPrice
+      , maybe bEmpty buildDecimal _orderAuxPrice
       , bEncode _orderTif
       , maybe bEmpty stringUtf8 _orderOcaGroup
       , stringUtf8 _orderAccount
@@ -149,12 +155,12 @@ createPlaceOrderMsg sversion orderid IBContract{..} IBOrder{..} =
               (\l ->   
                 [ intDec $ _comConId l
                 , intDec $ _comRatio l
-                , stringUtf8 $ _comAction l
-                , stringUtf8 $ _comExchange l
-                , intDec $ _comOpenClose l
-                , intDec $ _comShortSaleSlot l
+                , bEncode $ _comAction l
+                , bEncode $ _comExchange l
+                , bEncode $ _comOpenClose l
+                , bEncode $ _comShortSaleSlot l
                 , stringUtf8 $ _comDesignatedLocation l
-                , intDec $ _comExemptCode l
+                , maybe (intDec (-1)) intDec $ _comExemptCode l
                 ])
               _conComboLegs 
           else
@@ -163,7 +169,7 @@ createPlaceOrderMsg sversion orderid IBContract{..} IBOrder{..} =
           if _orderComboLegsCount > 0 then
             intDec _orderComboLegsCount :
             map
-              (doubleDec . _oclPrice)
+              (buildDecimal . _oclPrice)
               _orderComboLegs
           else
             [intDec 0]
@@ -178,7 +184,7 @@ createPlaceOrderMsg sversion orderid IBContract{..} IBOrder{..} =
       else
         [], 
       [ bEmpty
-      , doubleDec _orderDiscretionaryAmt
+      , buildDecimal _orderDiscretionaryAmt
       , maybe bEmpty stringUtf8 _orderGoodAfterTime
       , maybe bEmpty stringUtf8 _orderGoodTillDate
       , stringUtf8 _orderFAGroup
@@ -193,21 +199,21 @@ createPlaceOrderMsg sversion orderid IBContract{..} IBOrder{..} =
       , stringUtf8 _orderSettlingFirm
       , intDec $ boolBinary _orderAllOrNone
       , maybe (intDec 0) intDec _orderMinQty
-      , maybe bEmpty doubleDec _orderPercentOffset
+      , maybe bEmpty buildDecimal _orderPercentOffset
       , intDec $ boolBinary _orderETradeOnly
       , intDec $ boolBinary _orderFirmQuoteOnly
-      , maybe bEmpty doubleDec _orderNBBOPriceCap
+      , maybe bEmpty buildDecimal _orderNBBOPriceCap
       , maybe bEmpty bEncode _orderAuctionStrategy
-      , maybe bEmpty doubleDec _orderStartingPrice
-      , maybe bEmpty doubleDec _orderStockRefPrice
-      , maybe bEmpty doubleDec _orderDelta
-      , maybe bEmpty doubleDec _orderStockRangeLower
-      , maybe bEmpty doubleDec _orderStockRangeUpper
+      , maybe bEmpty buildDecimal _orderStartingPrice
+      , maybe bEmpty buildDecimal _orderStockRefPrice
+      , maybe bEmpty buildDecimal _orderDelta
+      , maybe bEmpty buildDecimal _orderStockRangeLower
+      , maybe bEmpty buildDecimal _orderStockRangeUpper
       , intDec $ boolBinary _orderOverridePercentageConstraints
-      , maybe bEmpty doubleDec _orderVolatility
+      , maybe bEmpty buildDecimal _orderVolatility
       , maybe bEmpty bEncode _orderVolatilityType
       , maybe bEmpty stringUtf8 _orderDeltaNeutralOrderType
-      , maybe bEmpty doubleDec _orderDeltaNeutralAuxPrice
+      , maybe bEmpty buildDecimal _orderDeltaNeutralAuxPrice
       ]
     , if isJust _orderDeltaNeutralOrderType then
         [ maybe (intDec 0) intDec _orderDeltaNeutralConId
@@ -227,16 +233,16 @@ createPlaceOrderMsg sversion orderid IBContract{..} IBOrder{..} =
         []
     , [ maybe (intDec 0) intDec _orderContinuousUpdate
       , maybe bEmpty bEncode _orderReferencePriceType
-      , maybe bEmpty doubleDec _orderTrailStopPrice
-      , maybe bEmpty doubleDec _orderTrailingPercent
+      , maybe bEmpty buildDecimal _orderTrailStopPrice
+      , maybe bEmpty buildDecimal _orderTrailingPercent
       , maybe bEmpty intDec _orderScaleInitLevelSize
       , maybe bEmpty intDec _orderScaleSubsLevelSize
-      , maybe bEmpty doubleDec _orderScalePriceIncrement
+      , maybe bEmpty buildDecimal _orderScalePriceIncrement
       ]
     , if isJust _orderScalePriceIncrement && (fromJust _orderScalePriceIncrement > 0) then
-        [ maybe bEmpty doubleDec _orderScalePriceAdjustValue
+        [ maybe bEmpty buildDecimal _orderScalePriceAdjustValue
         , maybe bEmpty intDec _orderScalePriceAdjustInterval
-        , maybe bEmpty doubleDec _orderScaleProfitOffset
+        , maybe bEmpty buildDecimal _orderScaleProfitOffset
         , intDec $ boolBinary _orderScaleAutoReset
         , maybe bEmpty intDec _orderScaleInitPosition
         , maybe bEmpty intDec _orderScaleInitFillQty
@@ -260,8 +266,8 @@ createPlaceOrderMsg sversion orderid IBContract{..} IBOrder{..} =
           uc = fromJust _conUnderComp
         in 
           [ intDec $ _ucConId uc
-          , doubleDec $ _ucDelta uc
-          , doubleDec $ _ucPrice uc
+          , buildDecimal $ _ucDelta uc
+          , buildDecimal $ _ucPrice uc
           ]
       else
         [ intDec $ boolBinary False]
@@ -277,8 +283,8 @@ createPlaceOrderMsg sversion orderid IBContract{..} IBOrder{..} =
 
 -- -----------------------------------------------------------------------------
 
-createCancelOrderMsg :: Int -> ByteString -> Maybe ByteString
-createCancelOrderMsg _ orderid = return $ ibMsg 1 CancelOrderT [byteString orderid]
+createCancelOrderMsg :: Int -> Int -> Maybe ByteString
+createCancelOrderMsg _ orderid = return $ ibMsg 1 CancelOrderT [intDec orderid]
 
 -- -----------------------------------------------------------------------------
 
@@ -298,13 +304,13 @@ createRequestExecutionsMsg :: Int -> Int -> IBExecutionFilter -> Maybe ByteStrin
 createRequestExecutionsMsg _ requestid IBExecutionFilter{..} =
   return $ ibMsg 3 ReqExecutionsT 
     [ intDec requestid
-    , intDec _efClientId
-    , stringUtf8 _efAcctCode
-    , stringUtf8 _efTime
-    , stringUtf8 _efSymbol
-    , bEncode _efSecType
-    , stringUtf8 _efExchange
-    , stringUtf8 _efSide
+    , intDec (fromMaybe 0 _efClientId)
+    , stringUtf8 (fromMaybe "" _efAcctCode)
+    , stringUtf8 (maybe "" ibFormatTime _efFromDateTime)
+    , stringUtf8 (fromMaybe "" _efSymbol)
+    , stringUtf8 (maybe "" encode _efSecType)
+    , stringUtf8 (maybe "" encode _efExchange)
+    , stringUtf8 (maybe "" encode _efSide)
     ]
 
 -- -----------------------------------------------------------------------------
@@ -321,18 +327,18 @@ createRequestContractDataMsg sversion requestid IBContract{..} =
       , intDec _conId
       , stringUtf8 _conSymbol
       , bEncode _conSecType
-      , stringUtf8 _conExpiry
-      , doubleDec _conStrike
-      , stringUtf8 _conRight
-      , stringUtf8 _conMultiplier
-      , stringUtf8 _conExchange
-      , stringUtf8 _conCurrency
+      , stringUtf8 (maybe "" ibFormatDay _conExpiry)
+      , buildDecimal _conStrike
+      , stringUtf8 (maybe "" encode _conRight)
+      , maybe bEmpty buildDecimal _conMultiplier
+      , stringUtf8 (show _conExchange)
+      , stringUtf8 (show _conCurrency)
       , stringUtf8 _conLocalSymbol
       ]
     , [ stringUtf8 _conTradingClass | sversion >= minServerVersionTradingClass
       ]
     , [ intDec $ boolBinary _conIncludeExpired
-      , stringUtf8 _conSecIdType
+      , stringUtf8 (maybe "" encode _conSecIdType)
       , stringUtf8 _conSecId
       ]
     ]
@@ -366,13 +372,13 @@ createRequestHistoricalDataMsg sversion tickerid IBContract{..} enddatetime dura
       , [ intDec _conId | sversion >= minServerVersionTradingClass]
       , [ stringUtf8 _conSymbol
         , bEncode _conSecType
-        , stringUtf8 _conExpiry
-        , doubleDec _conStrike
-        , stringUtf8 _conRight
-        , stringUtf8 _conMultiplier
-        , stringUtf8 _conExchange
-        , stringUtf8 _conPrimaryExch
-        , stringUtf8 _conCurrency
+        , stringUtf8 (maybe "" ibFormatDay _conExpiry)
+        , buildDecimal _conStrike
+        , stringUtf8 (maybe "" encode _conRight)
+        , maybe bEmpty buildDecimal _conMultiplier
+        , bEncode _conExchange
+        , bEncode _conPrimaryExch
+        , stringUtf8 (show _conCurrency)
         , stringUtf8 _conLocalSymbol
         ]
       , [ stringUtf8 _conTradingClass | sversion >= minServerVersionTradingClass]
@@ -410,13 +416,13 @@ createRequestRealTimeBarsMsg sversion tickerid IBContract{..} barsize barbasis u
         ]
       , [ stringUtf8 _conSymbol
         , bEncode _conSecType
-        , stringUtf8 _conExpiry
-        , doubleDec _conStrike
-        , stringUtf8 _conRight
-        , stringUtf8 _conMultiplier
-        , stringUtf8 _conExchange
-        , stringUtf8 _conPrimaryExch
-        , stringUtf8 _conCurrency
+        , stringUtf8 (maybe "" ibFormatDay _conExpiry)
+        , buildDecimal _conStrike
+        , stringUtf8 (maybe "" encode _conRight)
+        , maybe bEmpty buildDecimal _conMultiplier
+        , bEncode _conExchange
+        , bEncode _conPrimaryExch
+        , stringUtf8 (show _conCurrency)
         , stringUtf8 _conLocalSymbol
         ]
       , [ stringUtf8 _conTradingClass | sversion >= minServerVersionTradingClass

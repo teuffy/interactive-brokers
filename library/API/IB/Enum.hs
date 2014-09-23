@@ -862,32 +862,155 @@ parseIBExecutionSide =
   return Bought <* string "BOT" <|>
   return Sold <* string "SLD"
 
---------------------------------------------------
+-- -----------------------------------------------------------------------------
 
 data IBSecurityType =
-    IBForex
+    IBBag
+  | IBForex
   | IBFuture
+  | IBFutureOption
+  | IBIndex
+  | IBNews
   | IBOption
   | IBStock
-  | IBBag
     deriving (Eq,Ord,Enum,Show) 
 
 instance ToIB IBSecurityType where
+  encode IBBag = "BAG"
   encode IBForex = "CASH"
   encode IBFuture = "FUT"
+  encode IBFutureOption = "FOP"
+  encode IBIndex = "IND"
+  encode IBNews = "NEWS"
   encode IBOption = "OPT"
   encode IBStock = "STK"
-  encode IBBag = "BAG"
-
+  
 parseIBSecurityType :: Parser IBSecurityType
 parseIBSecurityType =
+  return IBBag <* string "BAG" <|>
   return IBForex <* string "CASH" <|>
   return IBFuture <* string "FUT" <|>
+  return IBFutureOption <* "FOP" <|>
+  return IBIndex <* "IND" <|>
+  return IBNews <* "NEWS" <|>
   return IBOption <* string "OPT" <|>
-  return IBStock <* string "STK" <|>
-  return IBBag <* string "BAG" 
+  return IBStock <* string "STK"
+  
+-- -----------------------------------------------------------------------------
 
+data IBExchange = 
+    GLOBEX
+  | LSE
+  | NASDAQ
+  | NYSE
+  | Other String
+    deriving (Eq,Ord,Read,Show)
 
+instance ToIB IBExchange where
+  encode (Other x) = x
+  encode x = show x
 
+parseIBExchange :: Parser IBExchange
+parseIBExchange = do
+  s <- parseString
+  case reads s of
+    [(x, "")] -> return x
+    _ -> return (Other s)
 
+-- -----------------------------------------------------------------------------
 
+data IBRight = 
+    Call 
+  | Put
+    deriving (Eq,Ord,Enum,Show) 
+
+instance ToIB IBRight where
+  encode Call = "C"
+  encode Put = "P"
+
+parseIBRight :: Parser IBRight
+parseIBRight =
+  return Call <* (string "C" <|> string "CALL") <|>
+  return Put <* (string "P" <|> string "PUT")
+
+-- -----------------------------------------------------------------------------
+
+data IBSecurityIdType =
+    CUSIP
+  | ISIN
+  | RIC
+  | SEDOL
+    deriving (Eq,Ord,Enum,Show)
+
+instance ToIB IBSecurityIdType where
+  encode = show
+
+parseIBSecurityIdType :: Parser IBSecurityIdType
+parseIBSecurityIdType =
+  return CUSIP <* string "CUSIP" <|>
+  return ISIN <* string "ISIN" <|>
+  return RIC <* string "RIC" <|>
+  return SEDOL <* string "SEDOL"
+
+-- -----------------------------------------------------------------------------
+
+data IBComboLegAction = 
+    ComboLegBuy 
+  | ComboLegSell
+  | ComboLegSellShort 
+  | ComboLegSellShortX
+    deriving (Eq,Ord,Enum,Show)
+
+instance ToIB IBComboLegAction where
+  encode ComboLegBuy = "BUY"
+  encode ComboLegSell = "SELL"
+  encode ComboLegSellShort = "SSHORT"
+  encode ComboLegSellShortX = "SSHORTX"
+
+parseIBComboLegAction :: Parser IBComboLegAction
+parseIBComboLegAction = 
+  return ComboLegBuy <* string "BUY" <|>
+  return ComboLegSell <* string "SELL" <|>
+  return ComboLegSellShort <* string "SSHORT" <|>
+  return ComboLegSellShortX <* string "SSHORTX"
+
+-- -----------------------------------------------------------------------------
+
+data IBComboLegShortSaleSlot =
+    NotApplicable
+  | ClearingBroker
+  | ThirdParty
+    deriving (Eq,Ord,Enum,Show)
+
+instance ToIB IBComboLegShortSaleSlot where
+  encode NotApplicable = "0"
+  encode ClearingBroker = "1"
+  encode ThirdParty = "2"
+
+parseIBComboLegShortSaleSlot :: Parser IBComboLegShortSaleSlot
+parseIBComboLegShortSaleSlot = 
+  return NotApplicable <* string "0" <|>
+  return ClearingBroker <* string "1" <|>
+  return ThirdParty <* string "2"  
+
+-- -----------------------------------------------------------------------------
+
+data IBComboLegOpenClose =
+    ComboLegParent
+  | ComboLegOpen 
+  | ComboLegClose
+  | ComboLegUnknown
+    deriving (Eq,Ord,Enum,Show)
+
+instance ToIB IBComboLegOpenClose where
+  encode ComboLegParent = "0"
+  encode ComboLegOpen = "1"
+  encode ComboLegClose = "2"
+  encode ComboLegUnknown = "3"
+
+parseIBComboLegOpenClose :: Parser IBComboLegOpenClose
+parseIBComboLegOpenClose = 
+  return ComboLegParent <* string "0" <|>
+  return ComboLegOpen <* string "1" <|>
+  return ComboLegClose <* string "2" <|>
+  return ComboLegUnknown <* string "3"

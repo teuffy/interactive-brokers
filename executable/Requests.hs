@@ -6,7 +6,6 @@ import           Control.Applicative   ((<$>))
 import           Control.Category      ((>>>))
 import           Control.Lens
 --import           Control.Monad         (forever)
-import qualified Data.ByteString.Char8 as BC
 import           Data.Default
 import           Data.Time
 import           Data.Time.Zones
@@ -29,11 +28,11 @@ conESZ4 :: IBContract
 conESZ4 = newIBContract 
   { _conSymbol = "ES"
   , _conSecType = IBFuture
-  , _conExpiry = "20141219"
-  , _conExchange = "GLOBEX"
+  , _conExpiry = Just (fromGregorian 2014 12 19)
+  , _conExchange = GLOBEX
   , _conCurrency = "USD"
   , _conLocalSymbol = "ESZ4"
-  , _conPrimaryExch = "GLOBEX" 
+  , _conPrimaryExch = GLOBEX
   }
 
 -- -----------------------------------------------------------------------------
@@ -41,7 +40,7 @@ conESZ4 = newIBContract
 
 orderMkt :: Int -> Int -> IBOrderAction -> Int -> IBOrder
 orderMkt oid cid oa q = newIBOrder
-  { _orderId = BC.pack $ show oid
+  { _orderId = oid
   , _orderClientId = cid
   , _orderAction = oa
   , _orderTotalQuantity = q
@@ -125,31 +124,34 @@ processRequests svc@IBEventHandler{..} = do
   maybe noEvents return $ do
     sv <- _ibServerVersion
     oid <- _ibNextOrderId
-    let boid = BC.pack $ show oid
     return
      [ 
-       release' $ IBRequest $ RequestCurrentTime sv
-     , release' $ IBRequest $ RequestContractData sv 1 conESZ4
-     , release' $ IBRequest $ RequestMarketData sv 2 conESZ4 [] False
-     , release' $ IBRequest $ RequestRealTimeBars sv 3 conESZ4 5 BarBasisTrades False
-     , release' $ IBRequest $ RequestHistoricalData sv 4 conESZ4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
-     , release' $ IBRequest $ RequestIds sv 3
-     --, release' $ IBRequest $ PlaceOrder sv boid conESZ4 (orderMkt oid _ibClientId Buy 1)
-     , release' $ IBRequest $ RequestOpenOrders sv
-     , release' $ IBRequest $ RequestAllOpenOrders sv
-     , release' $ IBRequest $ RequestAutoOpenOrders sv False
-     , release' $ IBRequest $ RequestManagedAccounts sv
-     , release' $ IBRequest $ RequestAccountData sv True (head _ibManagedAccounts)
-     , release' $ IBRequest $ RequestAccountSummary sv 5 All [NetLiquidation]
-     , release' $ IBRequest $ RequestPositions sv
-     , release' $ IBRequest $ RequestIds sv 3
-     , release' $ IBRequest $ RequestManagedAccounts sv
-     , release' $ IBRequest $ CancelAccountSummary sv 5
-     , release' $ IBRequest $ RequestExecutions sv 6 newIBExecutionFilter
-     , release' $ IBRequest $ RequestMarketDataType sv RealTime
-     , release' $ IBRequest $ CancelPositions sv
-     --, release' $ IBRequest $ RequestGlobalCancel sv
+       rq $ RequestCurrentTime sv
+     , rq $ RequestContractData sv 1 conESZ4
+     , rq $ RequestMarketData sv 2 conESZ4 [] False
+     , rq $ RequestRealTimeBars sv 3 conESZ4 5 BarBasisTrades False
+     , rq $ RequestHistoricalData sv 4 conESZ4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
+     , rq $ RequestIds sv 3
+     , rq $ PlaceOrder sv oid conESZ4 (orderMkt oid _ibClientId Buy 1)
+     --, rq $ PlaceOrder sv boid conESZ4 (orderMkt oid _ibClientId Sell 1)
+     --, rq $ CancelOrder sv oid
+     , rq $ RequestOpenOrders sv
+     , rq $ RequestAllOpenOrders sv
+     , rq $ RequestAutoOpenOrders sv False
+     , rq $ RequestManagedAccounts sv
+     , rq $ RequestAccountData sv True (head _ibManagedAccounts)
+     , rq $ RequestAccountSummary sv 5 All [NetLiquidation]
+     , rq $ RequestPositions sv
+     , rq $ RequestIds sv 3
+     , rq $ RequestManagedAccounts sv
+     , rq $ CancelAccountSummary sv 5
+     , rq $ RequestExecutions sv 6 newIBExecutionFilter
+     , rq $ RequestMarketDataType sv RealTime
+     , rq $ CancelPositions sv
+     --, req $ RequestGlobalCancel sv
      ]
+  where
+  rq = release' . IBRequest
 
 -- -----------------------------------------------------------------------------
 -- Command handler

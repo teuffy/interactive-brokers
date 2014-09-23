@@ -17,7 +17,6 @@ import           Pipes                            hiding (next)
 import qualified Pipes.Prelude                    as P
 import           Text.Printf
 
-
 -- -----------------------------------------------------------------------------
 
 boolBinary :: Bool -> Int

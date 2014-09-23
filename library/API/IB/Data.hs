@@ -9,11 +9,14 @@ import           Control.Monad
 import           Currency
 import           Data.Attoparsec.ByteString.Char8
 import           Data.ByteString                     (ByteString)
+import           Data.ByteString.Builder.Scientific
+import           Data.ByteString.Lazy.Builder        (Builder)
 import qualified Data.IntMap                         as IntMap (lookup)
 import           Data.List.Split                     (splitOn)
 import           Data.Map                            (Map)
 import qualified Data.Map                            as Map (empty, fromList, lookup)
 import           Data.Maybe
+import           Data.Scientific                     hiding (scientific)
 import           Data.Time
 import           Data.Time.Zones
 
@@ -32,6 +35,28 @@ parseTagValues = do
   count' <- parseIntField
   Map.fromList <$> replicateM count' ((,) <$> parseStringField <*> parseStringField)
 
+type Decimal = Scientific
+
+parseDecimal :: Parser Decimal
+parseDecimal = scientific
+
+parseDecimalField :: Parser Decimal
+parseDecimalField = parseField parseDecimal
+
+parseDecimalField' :: Parser Decimal
+parseDecimalField' = (parseEmptyField *> return 0) <|> parseDecimalField
+
+parseMaybeDecimalField :: Parser (Maybe Decimal)
+parseMaybeDecimalField = parseMaybeEmptyField parseDecimal
+
+parseMaybeDecimalField' :: Parser (Maybe Decimal)
+parseMaybeDecimalField' = 
+  (parseField (string "1.7976931348623157E308") *> return Nothing) <|>
+  parseMaybeDecimalField
+
+buildDecimal :: Decimal -> Builder
+buildDecimal = formatScientificBuilder Fixed Nothing
+
 -- -----------------------------------------------------------------------------
 -- Request
 
@@ -49,13 +74,13 @@ data IBRequest =
     }
   | PlaceOrder 
     { _reqServerVersion :: Int
-    , _reqOrderId :: ByteString 
+    , _reqOrderId :: Int 
     , _reqContract :: IBContract
     , _reqOrder :: IBOrder
     }
   | CancelOrder
     { _reqServerVersion :: Int 
-    , _reqOrderId :: ByteString
+    , _reqOrderId :: Int 
     }
   | RequestOpenOrders 
     { _reqServerVersion :: Int
@@ -63,7 +88,7 @@ data IBRequest =
   | RequestAccountData 
     { _reqServerVersion :: Int
     , _reqSubscribe :: Bool 
-    , _reqAccount :: String
+    , _reqAccount :: String --RF: Text
     }
   | RequestExecutions 
     { _reqServerVersion :: Int
@@ -150,12 +175,12 @@ data IBRequest =
 data IBHistoricalDataItem = IBHistoricalDataItem 
     { _hdiDate :: Day
     , _hdiTime :: TimeOfDay
-    , _hdiOpen :: Double 
-    , _hdiHigh :: Double 
-    , _hdiLow :: Double 
-    , _hdiClose :: Double 
+    , _hdiOpen :: Decimal
+    , _hdiHigh :: Decimal
+    , _hdiLow :: Decimal
+    , _hdiClose :: Decimal
     , _hdiVolume :: Int 
-    , _hdiWAP :: Double 
+    , _hdiWAP :: Decimal
     , _hdiHasGaps :: Bool 
     , _hdiBarCount :: Int
     } 
@@ -165,13 +190,13 @@ data IBResponse =
     Connection 
     { _connServerVersion :: Int
     , _connServerTime :: LocalTime
-    , _connServerTimeZoneDesc :: String
+    , _connServerTimeZoneDesc :: String --RF: Text
     , _connServerTimeZone :: Maybe TZ
     }
   | TickPrice 
     { _tpTickerId :: Int
     , _tpTickType :: IBTickType 
-    , _tpPrice :: Double
+    , _tpPrice :: Decimal
     , _tpCanAutoExecute :: Bool
     }
   | TickSize 
@@ -180,24 +205,24 @@ data IBResponse =
     , _tsSize :: Int
     }
   | OrderStatus 
-    { _osOrderId :: ByteString
+    { _osOrderId :: Int 
     , _osOrderStatus :: IBOrderStatus
     , _osFilled :: Int
     , _osRemaining :: Int
-    , _osAvgFillPrice :: Double 
+    , _osAvgFillPrice :: Decimal
     , _osPermId :: Int
     , _osParentId :: Int 
-    , _osLastFillPrice :: Double
+    , _osLastFillPrice :: Decimal
     , _osClientId :: Int
     , _osWhyHeld :: IBOrderWhyHeld
     } 
   | Error 
     { _errId :: Int 
     , _errCode :: Int 
-    , _errDesc :: String
+    , _errDesc :: String --RF: Text
     }
   | OpenOrder 
-    { _ooOrderId :: ByteString
+    { _ooOrderId :: Int 
     , _ooContract :: IBContract
     , _ooOrder :: IBOrder
     , _ooOrderState :: IBOrderState
@@ -208,13 +233,13 @@ data IBResponse =
     }
   | RealTimeBar
     { _rtbReqId :: Int
-    , _rtbTime :: UTCTime -- Int
-    , _rtbOpen :: Double
-    , _rtbHigh :: Double
-    , _rtbLow :: Double
-    , _rtbClose :: Double
+    , _rtbTime :: UTCTime
+    , _rtbOpen :: Decimal
+    , _rtbHigh :: Decimal
+    , _rtbLow :: Decimal
+    , _rtbClose :: Decimal
     , _rtbVolume :: Int
-    , _rtbWAP :: Double
+    , _rtbWAP :: Decimal
     , _rtbCount :: Int
     } 
   | NextValidId 
@@ -228,17 +253,17 @@ data IBResponse =
     { _cdReqId :: Int
     }
   | ManagedAccounts
-    { _maAccounts :: [String]
+    { _maAccounts :: [String] --RF: [Text]
     }
   | TickGeneric 
     { _tgTickerId :: Int
     , _tgTickType :: IBTickType
-    , _tgValue :: Double
+    , _tgValue :: Decimal
     }
   | TickString
     { _tsTickerId :: Int
     , _tsTickType :: IBTickType
-    , _tsValue :: String
+    , _tsValue :: String --RF: Text
     }
   | TickTime
     { _tsTickerId :: Int
@@ -249,17 +274,17 @@ data IBResponse =
     { _ctDateTime :: UTCTime
     }
   | Position
-    { _posAccount :: String
+    { _posAccount :: String --RF: Text
     , _posContract :: IBContract
     , _posPosition :: Int
-    , _posAvgCost :: Double
+    , _posAvgCost :: Decimal
     }
   | PositionEnd
   | AccountSummary 
     { _asReqId :: Int
     , _asAccount :: String
     , _asTag :: IBTag
-    , _asValue :: String
+    , _asValue :: String --RF: Text
     , _asCurrency :: Currency
     }
   | AccountSummaryEnd
@@ -268,19 +293,19 @@ data IBResponse =
   | OpenOrderEnd
   | AccountValue
     { _avTag :: IBTag
-    , _avValue :: String
+    , _avValue :: String --RF: Text
     , _avCurrency :: Maybe Currency
-    , _avAccount :: ByteString
+    , _avAccount :: ByteString --RF: Text
     }
   | PortfolioValue
     { _pvContract :: IBContract
     , _pvPosition :: Int 
-    , _pvMarketPrice :: Double
-    , _pvMarketValue :: Double 
-    , _pvAverageCost :: Double 
-    , _pvUnrealisedPnL :: Double 
-    , _pvRealisedPnL :: Double 
-    , _pvAccount :: String
+    , _pvMarketPrice :: Decimal
+    , _pvMarketValue :: Decimal
+    , _pvAverageCost :: Decimal
+    , _pvUnrealisedPnL :: Decimal
+    , _pvRealisedPnL :: Decimal
+    , _pvAccount :: String --RF: Text
     }
   | AccountUpdateTime 
     { _acUpdateTime :: TimeOfDay
@@ -304,7 +329,7 @@ data IBResponse =
     { _crCommissionReport :: IBCommissionReport
     }
   | AccountDownloadEnd 
-    { _acAccount :: String
+    { _acAccount :: String --RF: Text
     }
   deriving Show
 
@@ -375,7 +400,7 @@ parseTickPrice = do
   tid <- parseIntField 
   tt <- parseField parseIBTickType
   -- let stt = Map.lookup tt $ Map.fromList [(Bid,BidSize),(Ask,AskSize),(Last,LastSize)]
-  p <- fromMaybe 0 <$> parseMaybeDoubleField 
+  p <- fromMaybe 0 <$> parseMaybeDecimalField 
   _ <- if v >= 2 then parseIntField else return 0
   c <- if v >= 3 then parseBoolBinaryField else return False
   return [TickPrice tid tt p c] -- (maybe [] (\stt' -> [TickSize tid stt' s]) stt) -- looks like a separate TickSize is always sent
@@ -392,14 +417,14 @@ parseOrderStatus :: Parser IBResponse
 parseOrderStatus = do
   v <- parseVersion
   OrderStatus <$>
-    parseByteStringField <*>
+    parseIntField <*>
     parseField parseIBOrderStatus <*>
     parseIntField <*>
     parseIntField <*>
-    (fromMaybe 0 <$> parseMaybeDoubleField) <*>
+    (fromMaybe 0 <$> parseMaybeDecimalField) <*>
     (if v >= 2 then parseIntField else return 0) <*>
     (if v >= 3 then parseIntField else return 0) <*>
-    (if v >= 4 then fromMaybe 0 <$> parseMaybeDoubleField else return 0.0) <*>
+    (if v >= 4 then fromMaybe 0 <$> parseMaybeDecimalField else return 0.0) <*>
     (if v >= 5 then parseIntField else return 0) <*>
     (if v >= 6 
       then parseField parseIBOrderWhyHeld <|> (return NoReason <* parseEmptyField)
@@ -416,7 +441,7 @@ parseError = do
 parseOpenOrder :: Parser IBResponse
 parseOpenOrder = do
   v <- parseVersion
-  orderId' <- parseByteStringField
+  orderId' <- parseIntField
   contract <- 
     bConId newIBContract 
       >>= bConSymbol 
@@ -453,10 +478,10 @@ parseContractData = do
       >>= bConLocalSymbol
   cdMarketName' <- parseStringField
   contract'' <- bConTradingClass contract' >>= bConId
-  cdMinTick' <- parseDoubleField
+  cdMinTick' <- parseDecimalField
   contract''' <- bConMultiplier contract''
   cdOrderTypes' <- parseStringField
-  cdValidExchanges' <- parseStringField
+  cdValidExchanges' <- parseField (sepBy parseIBExchange (char ','))
   cdPriceMagnifier' <- parseIntField
   cdUnderConId' <- parseIntField
   cdLongName' <- parseStringField
@@ -469,7 +494,7 @@ parseContractData = do
   cdTradingHours' <- parseStringField
   cdLiquidHours' <- parseStringField
   cdEvRule' <- parseStringField
-  cdEvMultiplier' <- parseDoubleField'
+  cdEvMultiplier' <- parseDecimalField'
   numSecIds <- parseIntField
   secIdsList <- count numSecIds $ (,) <$> parseStringField <*> parseStringField
   let 
@@ -520,12 +545,12 @@ parseHistoricalDataItem =
   IBHistoricalDataItem <$>
     (parseDayYYYYMMDD <* skipSpace) <*>
     (parseTimeOfDayHHMMSS <* char sepC) <*>
-    parseDoubleField <*>
-    parseDoubleField <*>
-    parseDoubleField <*>
-    parseDoubleField <*>
+    parseDecimalField <*>
+    parseDecimalField <*>
+    parseDecimalField <*>
+    parseDecimalField <*>
     parseSignedIntField <*>
-    parseSignedDoubleField <*>
+    parseDecimalField <*>
     parseBoolStringField <*>
     parseSignedIntField
 
@@ -535,7 +560,7 @@ parseTickGeneric = do
   TickGeneric <$> 
     parseIntField <*>
     parseField parseIBTickType <*>
-    parseDoubleField
+    parseDecimalField
 
 parseTickString :: Parser IBResponse
 parseTickString = do
@@ -557,12 +582,12 @@ parseRealTimeBar = do
   RealTimeBar <$>
     parseIntField <*>
     parseUTCTimeField <*> -- parseIntField <*>
-    parseDoubleField <*>
-    parseDoubleField <*>
-    parseDoubleField <*>
-    parseDoubleField <*>
+    parseDecimalField <*>
+    parseDecimalField <*>
+    parseDecimalField <*>
+    parseDecimalField <*>
     parseIntField <*>
-    parseDoubleField <*>
+    parseDecimalField <*>
     parseIntField
 
 parsePosition :: Parser IBResponse
@@ -582,7 +607,7 @@ parsePosition = do
       >>= bConLocalSymbol 
       >>= when' (v>=2) bConTradingClass) <*>
     parseSignedIntField <*>
-    if v >= 3 then parseDoubleField else return 0.0
+    if v >= 3 then parseDecimalField else return 0.0
 
 parsePositionEnd :: Parser IBResponse
 parsePositionEnd = do
@@ -631,11 +656,11 @@ parsePortfolioValue = do
   PortfolioValue <$>
     parseContract' v <*>
     parseSignedIntField <*>
-    parseDoubleField <*>
-    parseDoubleField <*>
-    (if v >= 3 then parseDoubleField  else return 0.0) <*>
-    (if v >= 3 then parseDoubleField  else return 0.0) <*>
-    (if v >= 3 then parseDoubleField  else return 0.0) <*>
+    parseDecimalField <*>
+    parseDecimalField <*>
+    (if v >= 3 then parseDecimalField  else return 0.0) <*>
+    (if v >= 3 then parseDecimalField  else return 0.0) <*>
+    (if v >= 3 then parseDecimalField  else return 0.0) <*>
     (if v >= 4 then parseStringField else return "")
     where
     parseContract' v = 
@@ -659,7 +684,7 @@ parseExecutionData :: Parser IBResponse
 parseExecutionData = do
   v <- parseVersion
   reqId' <- if v >= 7 then parseSignedIntField else return (-1)
-  execOrderId' <- parseByteStringField
+  execOrderId' <- parseIntField
   contract' <- 
     bConId newIBContract
     >>= bConSymbol 
@@ -673,24 +698,24 @@ parseExecutionData = do
     >>= bConLocalSymbol 
     >>= when' (v >=10) bConTradingClass
   let execution = newIBExecution
-  execId' <- parseByteStringField
+  execId' <- parseStringField
   --execTime' <- parseStringField
   execDay' <- parseDayYYYYMMDD <* skipSpace
   execTime' <- parseTimeOfDayHHMMSS <* char sepC
   execAcctNumber' <- parseStringField
-  execExchange' <- parseStringField
+  execExchange' <- parseField parseIBExchange
   --execSide' <- parseStringField  
   execSide' <- parseField parseIBExecutionSide
   execShares' <- parseIntField
-  execPrice' <- parseDoubleField
+  execPrice' <- parseDecimalField
   execPermId' <- parseIntField
   execClientId' <- parseIntField
   execLiquidation' <- parseIntField
   execCumQty' <- if v >= 6 then parseIntField else return $ _execCumQty execution
-  execAvgPrice' <- if v >= 6 then parseDoubleField else return $ _execAvgPrice execution
+  execAvgPrice' <- if v >= 6 then parseDecimalField else return $ _execAvgPrice execution
   execOrderRef' <- if v >= 8 then parseStringField else return $ _execOrderRef execution
   execEvRule' <- if v >= 9 then parseStringField else return $ _execEvRule execution
-  execEvMultiplier' <- if v >= 9 then parseDoubleField' else return $ _execEvMultiplier execution
+  execEvMultiplier' <- if v >= 9 then parseDecimalField' else return $ _execEvMultiplier execution
   let execution' = execution { 
       _execOrderId = execOrderId'
     , _execClientId = execClientId'
@@ -741,19 +766,19 @@ parseCommissionReport = do
 
 data IBContract = IBContract 
   { _conId :: Int
-  , _conSymbol :: String
-  , _conSecType :: IBSecurityType -- String 
-  , _conExpiry :: String
-  , _conStrike :: Double 
-  , _conRight :: String
-  , _conMultiplier :: String
-  , _conExchange :: String
-  , _conCurrency :: String
-  , _conLocalSymbol :: String
+  , _conSymbol :: String --RF: Text
+  , _conSecType :: IBSecurityType 
+  , _conExpiry :: Maybe Day
+  , _conStrike :: Decimal 
+  , _conRight :: Maybe IBRight
+  , _conMultiplier :: Maybe Decimal 
+  , _conExchange :: IBExchange 
+  , _conCurrency :: Currency 
+  , _conLocalSymbol :: String --RF: Text
   , _conTradingClass :: String
-  , _conPrimaryExch :: String  -- not SMART
-  , _conIncludeExpired :: Bool  -- False for orders
-  , _conSecIdType :: String  -- CUSIP;SEDOL;ISIN;RIC
+  , _conPrimaryExch :: IBExchange -- not SMART
+  , _conIncludeExpired :: Bool -- False for orders
+  , _conSecIdType :: Maybe IBSecurityIdType
   , _conSecId :: String
   , _conComboLegsDescrip :: String  -- received in open order version 14 and up for all combos
   , _conComboLegs :: [IBComboLeg]
@@ -765,17 +790,17 @@ newIBContract = IBContract
   { _conId = 0
   , _conSymbol = ""
   , _conSecType = IBForex
-  , _conExpiry = ""
+  , _conExpiry = Nothing
   , _conStrike = 0.0
-  , _conRight = ""
-  , _conMultiplier = ""
-  , _conExchange = ""
+  , _conRight = Nothing
+  , _conMultiplier = Nothing
+  , _conExchange = Other ""
   , _conCurrency = ""
   , _conLocalSymbol = ""
   , _conTradingClass = ""
-  , _conPrimaryExch = ""
+  , _conPrimaryExch = Other ""
   , _conIncludeExpired = False
-  , _conSecIdType = ""
+  , _conSecIdType = Nothing
   , _conSecId = ""
   , _conComboLegsDescrip = ""
   , _conComboLegs = []
@@ -792,22 +817,22 @@ bConSecType :: IBContract -> Parser IBContract
 bConSecType contract = parseField parseIBSecurityType >>= \f -> return contract {_conSecType = f}
 
 bConExpiry :: IBContract -> Parser IBContract
-bConExpiry contract = parseStringField >>= \f -> return contract {_conExpiry = f}
+bConExpiry contract = parseDayYYYYMMDD' >>= \f -> return contract {_conExpiry = f}
 
 bConStrike :: IBContract -> Parser IBContract
-bConStrike contract = parseDoubleField >>= \f -> return contract {_conStrike= f}
+bConStrike contract = parseDecimalField >>= \f -> return contract {_conStrike= f}
 
 bConRight :: IBContract -> Parser IBContract
-bConRight contract = parseStringField >>= \f -> return contract {_conRight = f}
+bConRight contract = parseMaybeEmptyField parseIBRight >>= \f -> return contract {_conRight = f}
 
 bConMultiplier :: IBContract -> Parser IBContract
-bConMultiplier contract = parseStringField >>= \f -> return contract {_conMultiplier = f}
+bConMultiplier contract = parseMaybeDecimalField >>= \f -> return contract {_conMultiplier = f}
 
 bConExchange :: IBContract -> Parser IBContract
-bConExchange contract = parseStringField >>= \f -> return contract {_conExchange = f}
+bConExchange contract = parseField parseIBExchange >>= \f -> return contract {_conExchange = f}
 
 bConCurrency :: IBContract -> Parser IBContract
-bConCurrency contract = parseStringField >>= \f -> return contract {_conCurrency = f}
+bConCurrency contract = parseStringToEnumField >>= \f -> return contract {_conCurrency = f}
 
 bConLocalSymbol :: IBContract -> Parser IBContract
 bConLocalSymbol contract = parseStringField >>= \f -> return contract {_conLocalSymbol = f}
@@ -816,7 +841,7 @@ bConTradingClass :: IBContract -> Parser IBContract
 bConTradingClass contract = parseStringField >>= \f -> return contract {_conTradingClass = f}
 
 bConPrimaryExch :: IBContract -> Parser IBContract
-bConPrimaryExch contract = parseStringField >>= \f -> return contract {_conPrimaryExch = f}
+bConPrimaryExch contract = parseField parseIBExchange >>= \f -> return contract {_conPrimaryExch = f}
 
 parseIBContractComboLegs :: IBContract -> Parser IBContract
 parseIBContractComboLegs contract = do
@@ -844,42 +869,61 @@ parseIBContractUnderComp contract = do
 data IBComboLeg = IBComboLeg 
   { _comConId :: Int
   , _comRatio :: Int
-  , _comAction :: String  -- BUY/SELL/SSHORT/SSHORTX
-  , _comExchange :: String
-  , _comOpenClose :: Int
-  -- for stock legs when doing short sale
-  , _comShortSaleSlot :: Int  -- 1 = clearing broker, 2 = third party
-  , _comDesignatedLocation :: String
-  , _comExemptCode :: Int
+  , _comAction :: IBComboLegAction
+  , _comExchange :: IBExchange
+  , _comOpenClose :: IBComboLegOpenClose
+  , _comShortSaleSlot :: IBComboLegShortSaleSlot -- for short sale only
+  , _comDesignatedLocation :: String -- for short sale only
+  , _comExemptCode :: Maybe Int -- for short sale only
   } deriving Show
+
+
+newIBComboLeg :: IBComboLeg 
+newIBComboLeg = IBComboLeg
+  { _comConId = 0
+  , _comRatio = 0
+  , _comAction = ComboLegBuy
+  , _comExchange = Other ""
+  , _comOpenClose = ComboLegParent
+  , _comShortSaleSlot = NotApplicable
+  , _comDesignatedLocation = ""
+  , _comExemptCode = Nothing
+  }
 
 parseIBComboLeg :: Parser IBComboLeg
 parseIBComboLeg = 
   IBComboLeg <$>
     parseIntField <*>
     parseIntField <*>
+    parseField parseIBComboLegAction <*>
+    parseField parseIBExchange <*>
+    parseField parseIBComboLegOpenClose <*>
+    parseField parseIBComboLegShortSaleSlot <*>
     parseStringField <*>
-    parseStringField <*>
-    parseIntField <*>
-    parseIntField <*>
-    parseStringField <*>
-    parseIntField   
+    parseMaybeEmptyField decimal
 
 -- -----------------------------------------------------------------------------
 -- Under comp - TBC
 
 data IBUnderComp = IBUnderComp 
   { _ucConId :: Int
-  , _ucDelta :: Double
-  , _ucPrice :: Double
+  , _ucDelta :: Decimal
+  , _ucPrice :: Decimal
   } deriving Show
+
+newIBUnderComp :: IBUnderComp
+newIBUnderComp = IBUnderComp 
+  { _ucConId = 0
+  , _ucDelta = 0
+  , _ucPrice = 0
+  }
 
 parseIBUnderComp :: Parser IBUnderComp
 parseIBUnderComp = 
   IBUnderComp <$>
     parseIntField <*>
-    parseSignedDoubleField <*>
-    parseDoubleField
+    parseDecimalField <*>
+    parseDecimalField
 
 -- -----------------------------------------------------------------------------
 -- Contract details
@@ -887,13 +931,13 @@ parseIBUnderComp =
 data IBContractDetails = IBContractDetails 
   { _cdSummary :: IBContract
   , _cdMarketName :: String
-  , _cdMinTick :: Double
+  , _cdMinTick :: Decimal
   , _cdPriceMagnifier :: Int
-  , _cdOrderTypes :: String
-  , _cdValidExchanges :: String
+  , _cdOrderTypes :: String --RF: [Enum]?
+  , _cdValidExchanges :: [IBExchange]
   , _cdUnderConId :: Int
   , _cdLongName :: String
-  , _cdContractMonth :: String
+  , _cdContractMonth :: String --RF: Enum?
   , _cdIndustry :: String
   , _cdCategory :: String
   , _cdSubCategory :: String
@@ -901,7 +945,7 @@ data IBContractDetails = IBContractDetails
   , _cdTradingHours :: String
   , _cdLiquidHours :: String
   , _cdEvRule :: String
-  , _cdEvMultiplier :: Double
+  , _cdEvMultiplier :: Decimal
   , _cdSecIds :: IBTagValues
   } deriving Show 
 
@@ -912,7 +956,7 @@ newIBContractDetails = IBContractDetails
   , _cdMinTick = 0
   , _cdPriceMagnifier = 0
   , _cdOrderTypes = ""
-  , _cdValidExchanges = ""
+  , _cdValidExchanges = []
   , _cdUnderConId = 0
   , _cdLongName = ""
   , _cdContractMonth = ""
@@ -931,13 +975,13 @@ newIBContractDetails = IBContractDetails
 -- Combo leg
 
 data IBOrderComboLeg = IBOrderComboLeg 
-  { _oclPrice :: Double 
+  { _oclPrice :: Decimal 
   } deriving Show
 
 parseIBOrderComboLeg :: Parser IBOrderComboLeg
 parseIBOrderComboLeg = 
   IBOrderComboLeg <$> 
-    parseDoubleField'
+    parseDecimalField'
 
 type IBOrderComboLegs = [IBOrderComboLeg]
 
@@ -946,14 +990,14 @@ type IBOrderComboLegs = [IBOrderComboLeg]
 
 data IBOrder = IBOrder 
   -- Main order fields
-  { _orderId                             :: ByteString                     
+  { _orderId                             :: Int
   , _orderClientId                       :: Int 
   , _orderPermId                         :: Maybe Int                      -- Populated in open order message (permanent id for subitted and open orders, not used for new order?)
   , _orderAction                         :: IBOrderAction                  -- BUY, SELL, ?
   , _orderTotalQuantity                  :: Int                           
   , _orderType                           :: IBOrderType                    -- e.g. MKT, LMT
-  , _orderLmtPrice                       :: Maybe Double                  
-  , _orderAuxPrice                       :: Maybe Double                  
+  , _orderLmtPrice                       :: Maybe Decimal                  
+  , _orderAuxPrice                       :: Maybe Decimal                  
   -- Extended order fields                                              
   , _orderTif                            :: IBOrderTimeInForce             -- "Time in Force" - DAY, GTC, etc.
   , _orderOcaGroup                       :: Maybe String                   -- one cancels all group name
@@ -973,9 +1017,9 @@ data IBOrder = IBOrder
   , _orderRule80A                        :: Maybe IBOrderRule80A           -- Individual = 'I', Agency = 'A', AgentOtherMember = 'W', IndividualPTIA = 'J', AgencyPTIA = 'U', AgentOtherMemberPTIA = 'M', IndividualPT = 'K', AgencyPT = 'Y', AgentOtherMemberPT = 'N'
   , _orderAllOrNone                      :: Bool                            
   , _orderMinQty                         :: Maybe Int                             
-  , _orderPercentOffset                  :: Maybe Double                   -- REL orders only; specify the decimal, e.g. .04 not 4
-  , _orderTrailStopPrice                 :: Maybe Double                   -- for TRAILLIMIT orders only
-  , _orderTrailingPercent                :: Maybe Double                   -- specify the percentage, e.g. 3, not .03
+  , _orderPercentOffset                  :: Maybe Decimal                  -- REL orders only; specify the decimal, e.g. .04 not 4
+  , _orderTrailStopPrice                 :: Maybe Decimal                  -- for TRAILLIMIT orders only
+  , _orderTrailingPercent                :: Maybe Decimal                  -- specify the percentage, e.g. 3, not .03
   -- Financial advisors only                                      
   , _orderFAGroup                        :: String                   
   , _orderFAProfile                      :: String                   
@@ -988,27 +1032,27 @@ data IBOrder = IBOrder
   , _orderDesignatedLocation             :: Maybe String                   -- set when slot=2 only.
   , _orderExemptCode                     :: Int                            -- TBC
   -- SMART routing only                                           
-  , _orderDiscretionaryAmt               :: Double                          
+  , _orderDiscretionaryAmt               :: Decimal                          
   , _orderETradeOnly                     :: Bool                    
   , _orderFirmQuoteOnly                  :: Bool                      
-  , _orderNBBOPriceCap                   :: Maybe Double                      
+  , _orderNBBOPriceCap                   :: Maybe Decimal
   , _orderOptOutSmartRouting             :: Bool                          
   -- Box or vol orders only                                       
   , _orderAuctionStrategy                :: Maybe IBOrderAuctionStrategy   -- 1=AUCTION_MATCH, 2=AUCTION_IMPROVEMENT, 3=AUCTION_TRANSPARENT
   -- Box orders only                                              
-  , _orderStartingPrice                  :: Maybe Double                   
-  , _orderStockRefPrice                  :: Maybe Double                   
-  , _orderDelta                          :: Maybe Double                   
+  , _orderStartingPrice                  :: Maybe Decimal                   
+  , _orderStockRefPrice                  :: Maybe Decimal                   
+  , _orderDelta                          :: Maybe Decimal                   
   -- Pegged to stock or vol orders                                
-  , _orderStockRangeLower                :: Maybe Double                   
-  , _orderStockRangeUpper                :: Maybe Double                   
+  , _orderStockRangeLower                :: Maybe Decimal                   
+  , _orderStockRangeUpper                :: Maybe Decimal                   
   -- Volatility orders only                                        
-  , _orderVolatility                     :: Maybe Double                   -- Enter percentage not decimal, e.g. 2 not .02
+  , _orderVolatility                     :: Maybe Decimal                  -- Enter percentage not decimal, e.g. 2 not .02
   , _orderVolatilityType                 :: Maybe IBOrderVolatilityType    -- 1=daily, 2=annual
   , _orderContinuousUpdate               :: Maybe Int                      -- TBC
   , _orderReferencePriceType             :: Maybe IBOrderRefPriceType      -- 1=Bid/Ask midpoint, 2 = BidOrAsk
   , _orderDeltaNeutralOrderType          :: Maybe String                   -- TBC             
-  , _orderDeltaNeutralAuxPrice           :: Maybe Double                    
+  , _orderDeltaNeutralAuxPrice           :: Maybe Decimal                    
   , _orderDeltaNeutralConId              :: Maybe Int                      
   , _orderDeltaNeutralSettlingFirm       :: Maybe String                   
   , _orderDeltaNeutralClearingAccount    :: Maybe String                     
@@ -1018,15 +1062,15 @@ data IBOrder = IBOrder
   , _orderDeltaNeutralShortSaleSlot      :: Maybe IBOrderShortSaleSlot     -- TBC                       
   , _orderDeltaNeutralDesignatedLocation :: Maybe String                       
   -- Combo orders only                                            
-  , _orderBasisPoints                    :: Maybe Double                   -- TBC. EFP orders only, download only
+  , _orderBasisPoints                    :: Maybe Decimal                  -- TBC. EFP orders only, download only
   , _orderBasisPointsType                :: Maybe Int                      -- TBC. EFP orders only, download only
   -- Scale orders only                                            
   , _orderScaleInitLevelSize             :: Maybe Int                      
   , _orderScaleSubsLevelSize             :: Maybe Int                      
-  , _orderScalePriceIncrement            :: Maybe Double                   
-  , _orderScalePriceAdjustValue          :: Maybe Double                   
+  , _orderScalePriceIncrement            :: Maybe Decimal                   
+  , _orderScalePriceAdjustValue          :: Maybe Decimal                   
   , _orderScalePriceAdjustInterval       :: Maybe Int                        
-  , _orderScaleProfitOffset              :: Maybe Double                   
+  , _orderScaleProfitOffset              :: Maybe Decimal                   
   , _orderScaleAutoReset                 :: Bool                    
   , _orderScaleInitPosition              :: Maybe Int                      
   , _orderScaleInitFillQty               :: Maybe Int                      
@@ -1054,7 +1098,7 @@ data IBOrder = IBOrder
 
 newIBOrder :: IBOrder
 newIBOrder = IBOrder 
-  { _orderId                             = ""                    
+  { _orderId                             = 0                  
   , _orderClientId                       = 0                    
   , _orderPermId                         = Nothing              
   , _orderAction                         = Buy          
@@ -1149,8 +1193,8 @@ parseIBOrder contract = do
   orderAction' <- parseField parseIBOrderAction
   orderTotalQuantity' <- parseIntField
   orderType' <- parseField parseIBOrderType
-  orderLmtPrice' <- parseMaybeDoubleField
-  orderAuxPrice' <- parseMaybeDoubleField
+  orderLmtPrice' <- parseMaybeDecimalField
+  orderAuxPrice' <- parseMaybeDecimalField
   orderTif' <- parseField parseIBOrderTimeInForce
   orderOcaGroup' <- parseMaybe parseStringField
   orderAccount' <- parseStringField
@@ -1161,7 +1205,7 @@ parseIBOrder contract = do
   orderPermId' <- Just <$> parseIntField
   orderOutsideRth' <- parseBoolBinaryField
   orderHidden' <- parseBoolBinaryField
-  orderDiscretionaryAmt' <- parseDoubleField'
+  orderDiscretionaryAmt' <- parseDecimalField'
   orderGoodAfterTime' <- parseMaybeStringField
   _ <- parseStringField
   orderFAGroup' <- parseStringField
@@ -1170,17 +1214,17 @@ parseIBOrder contract = do
   orderFAPercentage' <- parseStringField
   orderGoodTillDate' <- parseMaybeStringField
   orderRule80A' <- parseMaybe $ parseField parseIBOrderRule80A
-  orderPercentOffset' <- parseMaybeDoubleField
+  orderPercentOffset' <- parseMaybeDecimalField
   orderSettlingFirm' <- parseStringField
   orderShortSaleSlot' <- parseMaybe $ parseField parseIBOrderShortSaleSlot
   orderDesignatedLocation' <- parseMaybeStringField  
   orderExemptCode' <- parseSignedIntField
   orderAuctionStrategy' <- parseMaybe $ parseField parseIBOrderAuctionStrategy
-  orderStartingPrice' <- parseMaybeDoubleField
-  orderStockRefPrice' <- parseMaybeDoubleField
-  orderDelta' <- parseMaybeDoubleField
-  orderStockRangeLower' <- parseMaybeDoubleField
-  orderStockRangeUpper' <- parseMaybeDoubleField
+  orderStartingPrice' <- parseMaybeDecimalField
+  orderStockRefPrice' <- parseMaybeDecimalField
+  orderDelta' <- parseMaybeDecimalField
+  orderStockRangeLower' <- parseMaybeDecimalField
+  orderStockRangeUpper' <- parseMaybeDecimalField
   orderDisplaySize' <- parseMaybeIntField
   orderBlockOrder' <- parseBoolBinaryField
   orderSweepToFill' <- parseBoolBinaryField
@@ -1189,15 +1233,15 @@ parseIBOrder contract = do
   orderOcaType' <- parseMaybe $ parseField parseIBOrderOCAType
   orderETradeOnly' <- parseBoolBinaryField
   orderFirmQuoteOnly' <- parseBoolBinaryField
-  orderNBBOPriceCap' <- parseMaybeDoubleField
+  orderNBBOPriceCap' <- parseMaybeDecimalField
   orderParentId' <- parseMaybeIntField
   orderTriggerMethod' <- parseField parseIBOrderTriggerMethod
-  orderVolatility' <- parseMaybeDoubleField
+  orderVolatility' <- parseMaybeDecimalField
   orderVolatilityType' <- parseMaybe $ parseField parseIBOrderVolatilityType
   orderDeltaNeutralOrderType'' <- parseStringField
   let dn' = not (null orderDeltaNeutralOrderType'')
   let orderDeltaNeutralOrderType' = if dn' then Just orderDeltaNeutralOrderType'' else Nothing
-  orderDeltaNeutralAuxPrice' <- parseMaybeDoubleField
+  orderDeltaNeutralAuxPrice' <- parseMaybeDecimalField
   orderDeltaNeutralConId' <- if dn' then parseMaybeIntField else return $ _orderDeltaNeutralConId order
   orderDeltaNeutralSettlingFirm' <- if dn' then parseMaybeStringField else return $ _orderDeltaNeutralSettlingFirm order
   orderDeltaNeutralClearingAccount' <- if dn' then parseMaybeStringField else return $ _orderDeltaNeutralClearingAccount order
@@ -1208,9 +1252,9 @@ parseIBOrder contract = do
   orderDeltaNeutralDesignatedLocation' <- if dn' then parseMaybeStringField else return $ _orderDeltaNeutralDesignatedLocation order
   orderContinuousUpdate' <- parseMaybeIntField
   orderReferencePriceType' <- parseMaybe $ parseField parseIBOrderRefPriceType
-  orderTrailStopPrice' <- parseMaybeDoubleField
-  orderTrailingPercent' <- parseMaybeDoubleField
-  orderBasisPoints' <- parseMaybeDoubleField
+  orderTrailStopPrice' <- parseMaybeDecimalField
+  orderTrailingPercent' <- parseMaybeDecimalField
+  orderBasisPoints' <- parseMaybeDecimalField
   orderBasisPointsType' <- parseMaybeIntField
   contract' <- parseIBContractComboLegs contract 
   orderComboLegsCount' <- parseIntField
@@ -1219,11 +1263,11 @@ parseIBOrder contract = do
   orderSmartComboRoutingParams' <- if orderSmartComboRoutingParamsCount' > 0 then parseTagValues else return $ _orderSmartComboRoutingParams order
   orderScaleInitLevelSize' <- parseMaybeIntField
   orderScaleSubsLevelSize' <- parseMaybeIntField
-  orderScalePriceIncrement' <- parseMaybeDoubleField
+  orderScalePriceIncrement' <- parseMaybeDecimalField
   let scale' = fmap (>0) orderScalePriceIncrement' == Just True 
-  orderScalePriceAdjustValue' <- if scale' then parseMaybeDoubleField else return $ _orderScalePriceAdjustValue order
+  orderScalePriceAdjustValue' <- if scale' then parseMaybeDecimalField else return $ _orderScalePriceAdjustValue order
   orderScalePriceAdjustInterval' <- if scale' then parseMaybeIntField else return $ _orderScalePriceAdjustInterval order
-  orderScaleProfitOffset' <- if scale' then parseMaybeDoubleField else return $ _orderScaleProfitOffset order
+  orderScaleProfitOffset' <- if scale' then parseMaybeDecimalField else return $ _orderScaleProfitOffset order
   orderScaleAutoReset' <- if scale' then parseBoolBinaryField else return $ _orderScaleAutoReset order
   orderScaleInitPosition' <- if scale' then parseMaybeIntField else return $ _orderScaleInitPosition order
   orderScaleInitFillQty' <- if scale' then parseMaybeIntField else return $ _orderScaleInitFillQty order
@@ -1334,26 +1378,26 @@ parseIBOrder contract = do
 
 data IBOrderState = IBOrderState
   { _osStatus :: IBOrderStatus
-  , _osInitMargin :: String
-  , _osMaintMargin :: String
-  , _osEquityWithLoan :: String
-  , _osCommission :: Double
-  , _osMinCommission :: Double
-  , _osMaxCommission :: Double
-  , _osCommissionCurrency :: String
+  , _osInitMargin :: Decimal
+  , _osMaintMargin :: Decimal
+  , _osEquityWithLoan :: Decimal
+  , _osCommission :: Decimal
+  , _osMinCommission :: Decimal
+  , _osMaxCommission :: Decimal
+  , _osCommissionCurrency :: Maybe Currency
   , _osWarningText :: String
   } deriving Show
 
 newIBOrderState :: IBOrderState
 newIBOrderState = IBOrderState 
   { _osStatus = Inactive
-  , _osInitMargin = ""
-  , _osMaintMargin = ""
-  , _osEquityWithLoan = ""
-  , _osCommission = 0.0
-  , _osMinCommission = 0.0
-  , _osMaxCommission = 0.0
-  , _osCommissionCurrency = ""
+  , _osInitMargin = 0
+  , _osMaintMargin = 0
+  , _osEquityWithLoan = 0
+  , _osCommission = 0
+  , _osMinCommission = 0
+  , _osMaxCommission = 0
+  , _osCommissionCurrency = Nothing
   , _osWarningText = ""
   }
 
@@ -1361,67 +1405,67 @@ parseIBOrderState :: Parser IBOrderState
 parseIBOrderState = 
   IBOrderState <$>
     parseField parseIBOrderStatus <*>
-    parseStringField <*>
-    parseStringField <*>
-    parseStringField <*>
-    parseDoubleField' <*> 
-    parseDoubleField' <*>
-    parseDoubleField' <*>
-    parseStringField <*>
+    parseDecimalField' <*>
+    parseDecimalField' <*>
+    parseDecimalField' <*>
+    parseDecimalField' <*> 
+    parseDecimalField' <*>
+    parseDecimalField' <*>
+    parseMaybeEmptyField parseStringToEnum <*>
     parseStringField
 
 -- -----------------------------------------------------------------------------
 -- Execution
 
 data IBExecution = IBExecution 
-  { _execOrderId      :: ByteString        
+  { _execOrderId      :: Int
   , _execClientId     :: Int     
-  , _execId           :: ByteString
-  , _execTime         :: LocalTime --String
+  , _execId           :: String
+  , _execTime         :: LocalTime
   , _execAcctNumber   :: String     
-  , _execExchange     :: String   
-  , _execSide         :: IBExecutionSide --String
+  , _execExchange     :: IBExchange
+  , _execSide         :: IBExecutionSide
   , _execShares       :: Int  
-  , _execPrice        :: Double
+  , _execPrice        :: Decimal
   , _execPermId       :: Int  
   , _execLiquidation  :: Int         
   , _execCumQty       :: Int    
-  , _execAvgPrice     :: Double
-  , _execOrderRef     :: String  
+  , _execAvgPrice     :: Decimal
+  , _execOrderRef     :: String --RF: TimeOfDay? 
   , _execEvRule       :: String 
-  , _execEvMultiplier :: Double       
+  , _execEvMultiplier :: Decimal      
   } deriving Show
 
 newIBExecution :: IBExecution
 newIBExecution = IBExecution 
-  { _execOrderId      = ""    
+  { _execOrderId      = 0
   , _execClientId     = 0
   , _execId           = "" 
   , _execTime         = zeroTimeLocal
   , _execAcctNumber   = ""     
-  , _execExchange     = ""   
+  , _execExchange     = Other ""
   , _execSide         = Bought
   , _execShares       = 0    
-  , _execPrice        = 0.0
+  , _execPrice        = 0
   , _execPermId       = 0   
   , _execLiquidation  = 0         
   , _execCumQty       = 0    
-  , _execAvgPrice     = 0.0   
+  , _execAvgPrice     = 0
   , _execOrderRef     = ""  
   , _execEvRule       = "" 
-  , _execEvMultiplier = 0.0 
+  , _execEvMultiplier = 0
   }
 
 -- -----------------------------------------------------------------------------
 -- Commission report
 
 data IBCommissionReport = IBCommissionReport 
-  { _crExecId :: ByteString
-  , _crCommission :: Double
+  { _crExecId :: String --RF: Text
+  , _crCommission :: Decimal
   , _crCurrency :: Currency
-  , _crRealisedPNL :: Double
-  , _crYield :: Double
-  , _crYieldRedemptionDate :: Int 
+  , _crRealisedPNL :: Maybe Decimal --RF: Amount
+  , _crYield :: Maybe Decimal
+  , _crYieldRedemptionDate :: Maybe Day
   } deriving Show
 
 newIBCommissionReport :: IBCommissionReport
@@ -1429,43 +1473,43 @@ newIBCommissionReport = IBCommissionReport
   { _crExecId = ""
   , _crCommission = 0.0
   , _crCurrency = "USD"
-  , _crRealisedPNL = 0.0
-  , _crYield = 0.0
-  , _crYieldRedemptionDate = 0  
+  , _crRealisedPNL = Nothing
+  , _crYield = Nothing
+  , _crYieldRedemptionDate = Nothing
   }
 
 parseIBCommissionReport :: Parser IBCommissionReport
 parseIBCommissionReport =
   IBCommissionReport <$>
-    parseByteStringField <*>
-    parseDoubleField <*>
+    parseStringField <*>
+    parseDecimalField <*>
     parseField parseStringToEnum <*>
-    parseDoubleField <*>
-    parseDoubleField <*>
-    parseIntField'
+    parseMaybeDecimalField' <*>
+    parseMaybeDecimalField' <*>
+    parseDayYYYYMMDD'
 
 -- -----------------------------------------------------------------------------
 -- Execution filter
 
 data IBExecutionFilter = IBExecutionFilter 
-  { _efClientId :: Int             -- zero means no filtering on this field
-  , _efAcctCode :: String
-  , _efTime :: String
-  , _efSymbol :: String
-  , _efSecType :: IBSecurityType -- String, TODO: Maybe? Check if blank means no filter
-  , _efExchange :: String
-  , _efSide :: String --TODO: enum?
+  { _efClientId :: Maybe Int 
+  , _efAcctCode :: Maybe String --RF: Text
+  , _efFromDateTime :: Maybe LocalTime
+  , _efSymbol :: Maybe String --RF: Text
+  , _efSecType :: Maybe IBSecurityType
+  , _efExchange :: Maybe IBExchange
+  , _efSide :: Maybe IBOrderAction
   } deriving Show
 
 newIBExecutionFilter :: IBExecutionFilter
 newIBExecutionFilter = IBExecutionFilter 
-  { _efClientId = 0              -- zero means no filtering on this field
-  , _efAcctCode = ""
-  , _efTime = ""
-  , _efSymbol = ""
-  , _efSecType = IBFuture 
-  , _efExchange = ""
-  , _efSide = ""  
+  { _efClientId = Nothing
+  , _efAcctCode = Nothing
+  , _efFromDateTime = Nothing
+  , _efSymbol = Nothing
+  , _efSecType = Nothing
+  , _efExchange = Nothing
+  , _efSide = Nothing
   }
 
 -- -----------------------------------------------------------------------------
