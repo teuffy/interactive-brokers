@@ -39,27 +39,17 @@ To Do List
 * Property tests
 * Benchmarks
 
-### Sample apps
-
-* Simpler app to demo withIB without using EventHandler framework
-
 ### Data 
 
-* Order id's to Int (e.g. IBRequest/PlaceOrder.reqOrderId)
-* More typing (enum,utctime,etc.) instead of strings/bytestrings (e.g. in contract)
-* Principled consistent use of bytestring/string/text (github issue #1)
-* Scientific/Decimal solution for decimal numbers (github issue #3)
-* Review currency type
+* Consider using Text (github issue #1)
 * IBOrder: into multiple data types
 * IBOrder: maybe's for bools
 * IBOrder: decomposition may allow a single maybe for related fields
 * Consistent use of IB prefix for data type names (e.g. IBRequest and IBResponse constructors and fields)
-* 
 
 ### Event Processor
 
 * Auto-start option
-* Debug option
 * ServiceCommand: implement start, pause, resume
 * ibsNextRequestId: add? if so, implment update logic
 * ibsNextOrderId: retain? if so, implement remaining update logic

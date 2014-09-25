@@ -4,7 +4,7 @@ This library provides a Haskell wrapper for the Interactive Brokers API. It is b
 
 ## Status
 
-* Work in progress (see TODO.md for planned enhancements).
+* Work in progress (see TODO.md for planned enhancements)
 * Working sample apps that demonstrate currently supported messages
 * A test suite has not yet been developed
 * Performance analysis has not yet been conducted
