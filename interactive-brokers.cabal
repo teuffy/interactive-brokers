@@ -28,7 +28,8 @@ Library
                           API.IB.Constant
                           API.IB.Connection
                           API.IB.Data 
-                          API.IB.Enum 
+                          API.IB.Enum
+                          API.IB.Monadic
                           API.IB.Request
                           API.IB.Parse
                           API.IB.Util

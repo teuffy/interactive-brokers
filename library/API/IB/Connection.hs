@@ -8,6 +8,15 @@ module API.IB.Connection (
   , ServiceOut(..)
   , IBConfiguration(..)
   , ibService
+  , IBService
+  , IBState(..)
+  , ibsConfig
+  , ibsServiceStatus
+  , ibsConnectionStatus
+  , ibsAccounts
+  , ibsNextOrderId
+  , ibsTimeZones
+  , cfgAutoStart
   , withIB
   , cfgDebug
 
@@ -79,7 +88,7 @@ type IBService = Service ServiceIn ServiceOut
 
 data IBConfiguration = IBConfiguration
   { _cfgAutoStart :: Bool --TODO
-  , _cfgDebug :: Bool --TODO
+  , _cfgDebug :: Bool
   , _cfgClientId :: Int
   , _cfgConnRetryDelaySecs :: Int
   , _cfgSocketParams :: SocketParams
@@ -292,9 +301,16 @@ ibService conf@IBConfiguration{..} = do
 
       model :: Model IBState EventIn EventOut
       model = 
-        asPipe (yield (ServiceIn (IBServiceRequest ServiceStart)) >> cat)
+        --asPipe (yield (ServiceIn (IBServiceRequest ServiceStart)) >> cat)
+        start
         >>> asPipe (runEdge eventHandler)
         >>> untilDone
+
+      start :: Model IBState EventIn EventIn
+      start = asPipe $ do
+        autoStart <- lift $ use (ibsConfig . cfgAutoStart)
+        when autoStart $ yield $ ServiceIn $ IBServiceRequest ServiceStart
+        cat
 
       io = do
         tzs <- loadTimeZones $ Map.elems _cfgTimeZoneMap
