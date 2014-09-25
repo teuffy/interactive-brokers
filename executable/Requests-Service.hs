@@ -1,11 +1,20 @@
-{-# LANGUAGE DeriveDataTypeable,ExistentialQuantification,GADTs,NoMonomorphismRestriction,OverloadedStrings,RankNTypes,RecordWildCards,ScopedTypeVariables,StandaloneDeriving,TemplateHaskell,TypeFamilies #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Main where
 
 import           Control.Applicative   ((<$>))
 import           Control.Category      ((>>>))
 import           Control.Lens
---import           Control.Monad         (forever)
 import           Data.Default
 import           Data.Time
 import           Data.Time.Zones
@@ -25,28 +34,7 @@ refDate :: LocalTime
 refDate = LocalTime (fromGregorian 2014 09 18) (TimeOfDay 0 0 (toEnum 0))
 
 conESZ4 :: IBContract
-conESZ4 = newIBContract 
-  { _conSymbol = "ES"
-  , _conSecType = IBFuture
-  , _conExpiry = Just (fromGregorian 2014 12 19)
-  , _conExchange = GLOBEX
-  , _conCurrency = "USD"
-  , _conLocalSymbol = "ESZ4"
-  , _conPrimaryExch = GLOBEX
-  }
-
--- -----------------------------------------------------------------------------
--- Order builder
-
-orderMkt :: Int -> Int -> IBOrderAction -> Int -> IBOrder
-orderMkt oid cid oa q = newIBOrder
-  { _orderId = oid
-  , _orderClientId = cid
-  , _orderAction = oa
-  , _orderTotalQuantity = q
-  , _orderType = Market
-  , _orderTransmit = True
-  }
+conESZ4 = future "ES" "ESZ4" (fromGregorian 2014 12 19) GLOBEX "USD" 
 
 -- -----------------------------------------------------------------------------
 -- Test strategy
@@ -132,8 +120,8 @@ processRequests svc@IBEventHandler{..} = do
      , rq $ RequestRealTimeBars sv 3 conESZ4 5 BarBasisTrades False
      , rq $ RequestHistoricalData sv 4 conESZ4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
      , rq $ RequestIds sv 3
-     , rq $ PlaceOrder sv oid conESZ4 (orderMkt oid _ibClientId Buy 1)
-     --, rq $ PlaceOrder sv boid conESZ4 (orderMkt oid _ibClientId Sell 1)
+     --, rq $ PlaceOrder sv oid conESZ4 (marketOrder oid _ibClientId Buy 1)
+     --, rq $ PlaceOrder sv boid conESZ4 (marketOrder oid _ibClientId Sell 1)
      --, rq $ CancelOrder sv oid
      , rq $ RequestOpenOrders sv
      , rq $ RequestAllOpenOrders sv
@@ -219,7 +207,4 @@ services = do
 
 main :: IO ()
 main = runMVC () model services
-
---main :: IO ()
---main = withIB def $ \(Service _ resp) -> forever $ atomically (recv resp) >>= print
 

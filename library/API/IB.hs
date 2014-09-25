@@ -1,20 +1,19 @@
 
 -- | 
--- This module implements a service for interfacing with the Interactive
+-- This module implements an interface for communicating with the Interactive
 -- Brokers API. 
 
 module API.IB 
-  ( module API.IB.Connection
-  , module API.IB.Data 
-  , module API.IB.Enum
+  ( module IB
   , module Currency
   )
 
 where
 
-import API.IB.Connection
-import API.IB.Data
-import API.IB.Enum
+import API.IB.Builder as IB
+import API.IB.Connection as IB
+import API.IB.Data as IB
+import API.IB.Enum as IB
 import Currency
 
 -----------------------------------------------------------------------------

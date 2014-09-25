@@ -4,7 +4,6 @@ To Do List
 
 ### Documentation
 
-* README: add list of supported and unsupported messages
 * Haddocks markup
 
 ### Defects
@@ -39,6 +38,10 @@ To Do List
 * Unit tests
 * Property tests
 * Benchmarks
+
+### Sample apps
+
+* Simpler app to demo withIB without using EventHandler framework
 
 ### Data 
 

@@ -1,6 +1,73 @@
 # Interactive Brokers API
 
-*Note: this library is work in progress* 
+This library provides a Haskell wrapper for the Interactive Brokers API. It is based on [version 9.70 of the IB Java API](http://interactivebrokers.github.io/downloads/twsapi_macunix.970.01.jar). The latest version at the time of writing is 9.72. See [the IB API home page](https://www.interactivebrokers.com/en/index.php?f=5041) for up-to-date information.
+
+## Status
+
+* Work in progress (see TODO.md for planned enhancements).
+* Working sample apps that demonstrate currently supported messages
+* A test suite has not yet been developed
+* Performance analysis has not yet been conducted
+
+## API Coverage
+
+The following messages are currently supported.
+
+### Requests
+
+* ReqMktData
+* CancelMktData
+* PlaceOrder
+* CancelOrder
+* ReqOpenOrders
+* ReqAccountData
+* ReqExecutions
+* ReqIds
+* ReqContractData
+* ReqAutoOpenOrders
+* ReqAllOpenOrders
+* ReqManagedAccounts
+* ReqHistoricalData
+* CancelHistoricalData
+* ReqCurrentTime
+* ReqRealTimeBars
+* CancelRealTimeBars
+* ReqGlobalCancel
+* ReqMarketDataType
+* ReqPositions
+* ReqAccountSummary
+* CancelAccountSummary
+* CancelPositions
+
+### Responses
+
+* TickPrice
+* TickSize
+* OrderStatus
+* ErrorMessage
+* OpenOrder
+* AccountValue
+* PortfolioValue
+* AccountUpdateTime
+* NextValidId
+* ContractData
+* ExecutionData
+* ManagedAccounts
+* HistoricalData
+* TickGeneric
+* TickString
+* CurrentTime
+* RealTimeBar
+* ContractDataEnd
+* OpenOrderEnd
+* ExecutionDataEnd
+* TickSnapshotEnd
+* MarketDataType
+* CommissionReport
+* Position
+* PositionEnd
+* AccountSummary
+* AccountSummaryEnd
 
 ## Setup
 
@@ -14,10 +81,12 @@ Tested on GHC 7.6.3:
     cabal install --only-dependencies -p
     cabal configure -p
     cabal build
+    cabal install
     
 With [IB TWS](#ib-tws) running, start the example application which issues a series of requests to the IB API and sends the responses to stdout:
 
-    cabal run requests
+    cabal run requests-simple
+    cabal run requests-service
 
 ## IB Installation (OS X)
 
@@ -98,7 +167,3 @@ Activate via menu / setting dialog:
 
 Edit - Global configuration - API - Settings - Enable ActiveX and Socket Clients
 
-
-## Reference
-
-* [Haskell project skeleton](https://github.com/tfausak/haskeleton)
