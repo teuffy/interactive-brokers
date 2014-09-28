@@ -14,10 +14,8 @@ To Do List
 ### New features
 
 * IB Controller launcher (TWS and Gateway). Test IB Gateway app
-* Add a cfgConnectionTimeOut setting?
-* Command terminal (e.g. use Haskeline)
-* Monadic interface
-* Simple interface (connection object)
+* Add a connection timeout (secs) config setting?
+* Simple interface (connection object)?
 * Remaining IB requests and responses (summarise here from list in Enum.hs)
 * Higher level API for requests (e.g. create order, including attached orders, oco orders, etc.)
 
@@ -38,6 +36,15 @@ To Do List
 * Unit tests
 * Property tests
 * Benchmarks
+
+### Sample apps
+
+* IB shell (build into API?)
+* Basic algo trader (e.g. moving average crossover)
+
+### Monadic interface
+
+* Disconnect
 
 ### Data 
 
