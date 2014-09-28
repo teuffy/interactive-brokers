@@ -28,7 +28,7 @@ To Do List
 ### Design
 
 * Refactor Edge to ListT (use state for partial parse)
-* Async housekeeping audit
+* Async/exception handling
 * Config read only (vs in 'mutable' state at present)?
 * Some data unncecessary in IB connection state (e.g. accounts, next valid id, etc?) 
 * BASE currency (in AccountValue msg) solution
@@ -46,6 +46,7 @@ To Do List
 * IBOrder: maybe's for bools
 * IBOrder: decomposition may allow a single maybe for related fields
 * Consistent use of IB prefix for data type names (e.g. IBRequest and IBResponse constructors and fields)
+* Use Data.Default for base instances (vs newIBContract, etc.)
 
 ### Event Processor
 
@@ -80,6 +81,10 @@ To Do List
 * Streamline verbose code e.g. atomically
 * Secure SSL option
 * Tests and benchmarks
+
+### MVC Service
+
+* Lenses for Service
 
 
 

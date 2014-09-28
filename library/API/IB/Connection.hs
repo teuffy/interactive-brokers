@@ -1,30 +1,23 @@
 {-# LANGUAGE Arrows,DeriveDataTypeable,ImpredicativeTypes,OverloadedStrings,RankNTypes,RecordWildCards,ScopedTypeVariables,TemplateHaskell,TypeFamilies #-}
 
-module API.IB.Connection (
+module API.IB.Connection 
 
-    ServiceStatus(..)
+  ( ServiceStatus(..)
   , ServiceCommand(..)
   , ServiceIn(..)
   , ServiceOut(..)
   , IBConfiguration(..)
   , ibService
   , IBService
-  , IBState(..)
-  , ibsConfig
-  , ibsServiceStatus
-  , ibsConnectionStatus
-  , ibsAccounts
-  , ibsNextOrderId
-  , ibsTimeZones
-  , cfgAutoStart
   , withIB
+  , cfgAutoStart
   , cfgDebug
-
   ) where
 
 import           Control.Applicative
 import           Control.Arrow                    (arr, (>>>),(|||))
 import           Control.Concurrent.Async         (withAsync)
+import           Control.Exception
 import           Control.Lens                     hiding (view)
 import           Control.Monad                    (forever,void,when)
 import qualified Control.Monad.Trans.State.Strict as S
@@ -42,8 +35,7 @@ import           MVC.Event
 import           MVC.Service
 import           Pipes.Core
 
-import           MVC.Socket                       hiding (Connection(..),ConnectionCommand(..),EventIn(..),EventOut(..),ServiceIn(..),ServiceOut(..),untilDone,_ServiceOut,_SocketOut)
-import qualified MVC.Socket                       as K (ConnectionCommand(..),ServiceIn(..),ServiceOut(..))
+import qualified MVC.Socket                       as K
 import           Pipes.Edge
 
 import           API.IB.Constant
@@ -87,12 +79,12 @@ type IBService = Service ServiceIn ServiceOut
 -----------------------------------------------------------------------------
 
 data IBConfiguration = IBConfiguration
-  { _cfgAutoStart :: Bool --TODO
+  { _cfgAutoStart :: Bool
   , _cfgDebug :: Bool
   , _cfgClientId :: Int
   , _cfgConnRetryDelaySecs :: Int
-  , _cfgSocketParams :: SocketParams
-  , _cfgTimeZoneMap :: Map String String
+  , _cfgSocketParams :: K.SocketParams
+  , _cfgTimeZones :: Map String String
   } 
 
 instance Default IBConfiguration where 
@@ -101,21 +93,24 @@ instance Default IBConfiguration where
     , _cfgDebug = False
     , _cfgClientId = 0
     , _cfgConnRetryDelaySecs = 10
-    , _cfgSocketParams = SocketParams "127.0.0.1" "7496" False
-    , _cfgTimeZoneMap = ibTimeZoneMap
+    , _cfgSocketParams = K.SocketParams "127.0.0.1" "7496" False
+    , _cfgTimeZones = ibTimeZones
     } 
 
 data IBState = IBState
   { _ibsConfig      :: IBConfiguration
-  , _ibsServiceStatus :: ServiceStatus
   , _ibsConnectionStatus :: ConnectionStatus
-  , _ibsAccounts    :: [String]
-  , _ibsNextOrderId :: Maybe Int
+  , _ibsServiceStatus :: ServiceStatus
   , _ibsTimeZones :: Map String TZ
   } 
 
-instance Default IBState where
-  def = IBState def ServicePending ServiceDisconnected [] Nothing Map.empty
+instance Default IBState where 
+  def = IBState 
+    { _ibsConfig = def
+    , _ibsServiceStatus = ServicePending
+    , _ibsConnectionStatus = ServiceDisconnected
+    , _ibsTimeZones = Map.empty
+    }
 
 makeLenses ''IBConfiguration
 makeLenses ''IBState
@@ -201,17 +196,13 @@ streamHandler = Edge $ push ~> \e ->
       yield $ ServiceOut $ Log $ BC.append "Cannot parse ib response: " $ BC.pack b
     Right r -> do
       r' <- case r of
-        Connection{..} -> do
+        Connection IBConnection{..} -> do
           ibsConnectionStatus .= ServiceConnected
           cid <- use (ibsConfig . cfgClientId)
           yield $ SocketOut $ K.Send $ createClientIdMsg cid
           tzs <- use ibsTimeZones
-          return $ r & connServerTimeZone .~ Map.lookup _connServerTimeZoneDesc tzs
-        ManagedAccounts acs -> do
-          ibsAccounts .= acs 
-          return r
-        NextValidId oid -> do
-          ibsNextOrderId .= Just oid 
+          return $ r & (connConnection . connServerTimeZone) .~ Map.lookup _connServerTimeZoneDesc tzs
+        NextValidId{} -> do
           s <- use ibsServiceStatus
           when (s == ServiceActivating) $ updateServiceStatus ServiceActive
           return r
@@ -234,18 +225,10 @@ disconnectedHandler = Edge $ push ~> \_ -> do
     yield $ SocketOut $ K.ConnectionCommand $ K.Connect d
   else if s == ServiceTerminating then do
     ibsConnectionStatus .= ServiceDisconnected
+    ibsServiceStatus .= ServiceTerminated
     yield Done
   else
     yield $ ServiceOut $ Log "Unexpected"
-
---finishedHandler :: (Monad m) => Edge (S.StateT IBState m) () () EventOut
---finishedHandler = Edge $ push ~> \_ -> do
---  s <- use ibsServiceStatus
---  if s == ServiceTerminating then do
---    updateServiceStatus ServiceTerminated
---    yield Done
---  else
---    yield $ ServiceOut $ Log "Unexpected"
 
 ignoreHandler :: (Monad m) => Edge (S.StateT IBState m) () () EventOut
 ignoreHandler = Edge $ push ~> \_ -> return ()
@@ -272,7 +255,7 @@ untilDone = asPipe go
 ibService :: IBConfiguration -> Managed IBService
 ibService conf@IBConfiguration{..} = do
   
-  (vSocket,cSocket) <- toManagedMVC $ toManagedService $ socketService _cfgSocketParams
+  (vSocket,cSocket) <- toManagedMVC $ toManagedService $ K.socketService _cfgSocketParams
 
   managed $ \k -> do
 
@@ -301,7 +284,6 @@ ibService conf@IBConfiguration{..} = do
 
       model :: Model IBState EventIn EventOut
       model = 
-        --asPipe (yield (ServiceIn (IBServiceRequest ServiceStart)) >> cat)
         start
         >>> asPipe (runEdge eventHandler)
         >>> untilDone
@@ -311,12 +293,20 @@ ibService conf@IBConfiguration{..} = do
         autoStart <- lift $ use (ibsConfig . cfgAutoStart)
         when autoStart $ yield $ ServiceIn $ IBServiceRequest ServiceStart
         cat
+      
+      errorHandler :: SomeException -> IO ()
+      errorHandler e = do
+        putStrLn $ "Debug: connection core error: " ++ show e
+        --TODO: take action depending on whehther async (ThreadKilled)
+        --or sync exception
+        throwIO e   
 
-      io = do
-        tzs <- loadTimeZones $ Map.elems _cfgTimeZoneMap
-        let tzs' = Map.fromList $ zip (Map.keys _cfgTimeZoneMap) tzs
+      io :: IO ()
+      io = handle errorHandler $ do
+        tzs <- loadTimeZones $ Map.elems _cfgTimeZones
+        let tzs' = Map.fromList $ zip (Map.keys _cfgTimeZones) tzs
         let initialState = def & (ibsConfig .~ conf) & (ibsTimeZones .~ tzs')
-        runMVC initialState model external
+        void $ runMVC initialState model external
 
     withAsync io $ \_ -> k (Service vServiceIn cServiceOut) <* sealAll
 

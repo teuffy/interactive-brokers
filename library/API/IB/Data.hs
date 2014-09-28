@@ -1,4 +1,6 @@
-{-# LANGUAGE OverloadedStrings,TemplateHaskell #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module API.IB.Data where
 
@@ -162,17 +164,28 @@ data IBRequest =
     }
   | CancelAccountSummary 
     { _reqServerVersion :: Int 
-    , _req :: Int
+    , _reqRequestId :: Int
     }
   | CancelPositions 
     { _reqServerVersion :: Int
     }
   deriving Show
 
+updateRequestId :: IBRequest -> Bool
+updateRequestId = \case
+  RequestMarketData{} -> True
+  RequestExecutions{} -> True
+  RequestContractData{} -> True
+  RequestHistoricalData{} -> True
+  RequestRealTimeBars{} -> True
+  RequestAccountSummary{} -> True
+  _ -> False
+
 -- -----------------------------------------------------------------------------
 -- Response
 
-data IBHistoricalDataItem = IBHistoricalDataItem 
+data IBHistoricalDataItem = 
+    IBHistoricalDataItem 
     { _hdiDate :: Day
     , _hdiTime :: TimeOfDay
     , _hdiOpen :: Decimal
@@ -186,12 +199,18 @@ data IBHistoricalDataItem = IBHistoricalDataItem
     } 
     deriving Show
 
-data IBResponse = 
-    Connection 
+data IBConnection = 
+    IBConnection
     { _connServerVersion :: Int
     , _connServerTime :: LocalTime
     , _connServerTimeZoneDesc :: String --RF: Text
     , _connServerTimeZone :: Maybe TZ
+    }
+    deriving Show
+
+data IBResponse = 
+    Connection 
+    { _connConnection :: IBConnection
     }
   | TickPrice 
     { _tpTickerId :: Int
@@ -383,13 +402,16 @@ parseTypedResponses = do
     Nothing -> fail ""
     Just t -> fromMaybe (fail "") (Map.lookup t responses)
 
-parseConnection :: Parser IBResponse
-parseConnection = do
+parseIBConnection :: Parser IBConnection
+parseIBConnection = do
   sv <- parseField decimal
   d <- parseDayYYYYMMDD <* skipSpace
   t <- parseTimeOfDayHHMMSS <* skipSpace
   tz <- parseStringField
-  return $ Connection sv (LocalTime d t) tz Nothing
+  return $ IBConnection sv (LocalTime d t) tz Nothing
+
+parseConnection :: Parser IBResponse
+parseConnection = Connection <$> parseIBConnection 
 
 parseVersion :: Parser Int
 parseVersion = parseIntField
@@ -1517,6 +1539,7 @@ newIBExecutionFilter = IBExecutionFilter
 
 makeLenses ''IBRequest
 makeLenses ''IBHistoricalDataItem
+makeLenses ''IBConnection
 makeLenses ''IBResponse
 makeLenses ''IBContract
 makeLenses ''IBComboLeg

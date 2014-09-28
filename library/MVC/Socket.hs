@@ -86,10 +86,10 @@ data SocketParams = SocketParams
 newtype Connection = Connection { _unConnection :: TVar (Maybe Socket) }
 
 newEmptyConnection :: IO Connection
-newEmptyConnection = newTVarIO Nothing >>= return . Connection
+newEmptyConnection = Connection <$> newTVarIO Nothing
 
 newConnection :: Socket -> IO Connection
-newConnection sock = newTVarIO (Just sock) >>= return . Connection
+newConnection sock = Connection <$> newTVarIO (Just sock)
 
 getSocket :: Connection -> STM (Maybe Socket)
 getSocket conn = readTVar $ _unConnection conn
@@ -117,7 +117,7 @@ clearSocket conn = writeTVar (_unConnection conn) Nothing
 connection :: SocketParams -> IO (Maybe Connection)
 connection p = connectSocket p >>= either (const $ return Nothing) connection'
   where
-  connection' (sock,_) = newConnection sock >>= return . Just 
+  connection' (sock,_) = Just <$> newConnection sock
 
 connectSocket :: SocketParams -> IO (Either SomeException (S.Socket,S.SockAddr))
 connectSocket p = try $ S.connectSock (_host p) (_port p)
@@ -155,7 +155,7 @@ connectionHandler p conn status cmd = case cmd of
 socketServiceModel :: Model SocketServiceState EventIn EventOut
 socketServiceModel = asPipe (loop model) >>> untilDone
   where
-  model event = Select $ do
+  model event = Select $
     case event of
       (ServiceIn (ServiceCommand ServiceStart))        -> yield (ConnectionOut (Connect 0))
       (ServiceIn (ServiceCommand ServicePause))        -> yield (ConnectionOut Disconnect) 
@@ -175,7 +175,7 @@ untilDone = asPipe go
   go = do
     e <- await
     case e of
-      Done -> yield (ConnectionOut Disconnect) >> return ()
+      Done -> void $ yield (ConnectionOut Disconnect)
       _    -> yield e >> go
 
 socketService :: SocketParams -> Managed SocketService
@@ -206,15 +206,25 @@ socketService p = do
 
       controller :: Controller EventIn
       controller = mconcat
-        [ ServiceIn <$> (asInput cServiceIn)
+        [ ServiceIn <$> asInput cServiceIn
         , SocketIn  <$> cSocketIn
-        , ConnectionIn <$> (asInput cConnection)
+        , ConnectionIn <$> asInput cConnection
         ]
 
       external :: Managed (View EventOut, Controller EventIn)
       external = return (view,controller)
 
-      io = runMVC def socketServiceModel external
+      errorHandler :: SomeException -> IO ()
+      errorHandler e = do
+        putStrLn $ "Debug: socket core error: " ++ show e
+        --TODO: take action depending on whehther async (ThreadKilled)
+        --or sync exception
+        closeConnection conn
+        sealAll
+        throwIO e   
+      
+      io :: IO ()
+      io = handle errorHandler $ void $ runMVC def socketServiceModel external
 
     withAsync io $ \_ -> k (Service vServiceIn cServiceOut) <* closeConnection conn <* sealAll
 

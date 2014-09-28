@@ -79,12 +79,12 @@ instance HandlesEvent (IBEventHandler s) where
 type IBResult s = HandleEventResult SomeEvent SomeEvent (IBEventHandler s)
 
 processServiceStatus :: IBEventHandler s -> ServiceStatus -> IBResult s
-processServiceStatus svc@IBEventHandler{..} status = do
-  putEventHandler $ svc & (ibServiceStatus .~ status)
+processServiceStatus svc@IBEventHandler{..} sts = do
+  putEventHandler $ svc & (ibServiceStatus .~ sts)
   noEvents
 
 processConnection :: IBEventHandler a -> IBResponse -> IBResult s
-processConnection svc Connection{..} = do
+processConnection svc (Connection IBConnection{..}) = do
   putEventHandler $ svc 
     & (ibServerVersion .~ Just _connServerVersion) 
     & (ibServerTimeZone .~ _connServerTimeZone)
@@ -92,8 +92,8 @@ processConnection svc Connection{..} = do
 processConnection _ _ = noEvents
 
 processManagedAccounts :: IBEventHandler a -> IBResponse -> IBResult s
-processManagedAccounts svc@IBEventHandler{..} (ManagedAccounts accounts) = do
-  putEventHandler $ svc & (ibManagedAccounts .~ accounts)
+processManagedAccounts svc@IBEventHandler{..} (ManagedAccounts acs) = do
+  putEventHandler $ svc & (ibManagedAccounts .~ acs)
   noEvents
 processManagedAccounts _ _ = noEvents
 

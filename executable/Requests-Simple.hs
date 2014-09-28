@@ -9,7 +9,7 @@ import           Data.Time
 import           MVC
 import           MVC.Service
 
-import           API.IB
+import           API.IB        hiding (recv,send)
 
 -- -----------------------------------------------------------------------------
 -- Reference data
@@ -29,7 +29,7 @@ main = withIB def $ \(Service request response) -> do
       r <- recv'
       print r
       case r of 
-        Just (IBResponse Connection{..}) -> 
+        Just (IBResponse (Connection IBConnection{..})) -> 
           loop' _connServerVersion done
         Just (IBResponse NextValidId{}) -> 
           unless done $ do

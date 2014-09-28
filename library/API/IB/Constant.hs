@@ -25,8 +25,8 @@ sepC = '\NUL'
 sepB :: ByteString
 sepB = singleton sepC
 
-ibTimeZoneMap :: Map String String
-ibTimeZoneMap = Map.fromList
+ibTimeZones :: Map String String
+ibTimeZones = Map.fromList
   [ ("Eastern Standard Time (Victoria)","Australia/Melbourne")
   , ("Eastern Standard Time (Queensland)","Australia/Brisbane")
   ]
