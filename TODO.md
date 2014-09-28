@@ -4,6 +4,7 @@ To Do List
 
 ### Documentation
 
+* README: review IB Controller username/password instructions, review latest IB Controller release
 * Haddocks markup
 
 ### Defects
@@ -18,6 +19,7 @@ To Do List
 * Simple interface (connection object)?
 * Remaining IB requests and responses (summarise here from list in Enum.hs)
 * Higher level API for requests (e.g. create order, including attached orders, oco orders, etc.)
+* Logging
 
 ### Build
 
@@ -39,8 +41,10 @@ To Do List
 
 ### Sample apps
 
-* IB shell (build into API?)
-* Basic algo trader (e.g. moving average crossover)
+* Requests-Simple: rename, add all requests
+* Requests-Service: rename, change to be a basic algo trader (e.g. moving average crossover)
+* Shell: IB shell (build into API?) - add full request support, single command invocation
+* Capture (new): historical/streaming market data to file/db
 
 ### Monadic interface
 
@@ -57,10 +61,9 @@ To Do List
 
 ### Event Processor
 
-* Auto-start option
-* ServiceCommand: implement start, pause, resume
+* ServiceCommand: implement pause, resume
+* Socket service status messages: implement handlers
 * ibsNextRequestId: add? if so, implment update logic
-* ibsNextOrderId: retain? if so, implement remaining update logic
 * Check client server version <= server version
 * Error handler for error responses from IB (see IB API docs for error codes)
 * Error response messages - see EClientSocket.java e.g. not connected, cannot send (also cannot create which currently only logs a message)
