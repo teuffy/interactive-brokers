@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
---{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE RankNTypes #-}
 
 module API.IB.Parse where

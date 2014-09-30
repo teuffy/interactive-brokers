@@ -1,4 +1,5 @@
-{-# LANGUAGE MultiWayIf,OverloadedStrings #-}
+{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module API.IB.Enum where
 

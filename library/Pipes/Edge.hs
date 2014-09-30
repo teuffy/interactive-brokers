@@ -1,6 +1,6 @@
-{-# LANGUAGE RankNTypes, Arrows #-}
+-- The code in this module was provided by Gabriel Gonzalez
 
--- Code provided by Gabriel Gonzalez
+{-# LANGUAGE RankNTypes #-}
 
 module Pipes.Edge where
 

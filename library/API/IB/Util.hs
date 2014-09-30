@@ -1,4 +1,6 @@
-{-# LANGUAGE OverloadedStrings,RankNTypes,TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TupleSections #-}
 
 module API.IB.Util where
 

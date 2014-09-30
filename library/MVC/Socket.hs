@@ -1,4 +1,7 @@
-{-# LANGUAGE DeriveDataTypeable,ScopedTypeVariables,TemplateHaskell #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module MVC.Socket where
 
@@ -8,22 +11,18 @@ import           Control.Concurrent        (threadDelay)
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Exception
-import           Control.Lens              (makeLenses,makePrisms,use)
-import           Control.Monad             (forever,void)
+import           Control.Lens              hiding (view)
+import           Control.Monad             hiding (forM_)
 import           Data.ByteString           (ByteString)
-import qualified Data.ByteString           as B
 import           Data.Default
 import           Data.Foldable             (forM_)
 import           MVC
-import           MVC.Prelude
 import           MVC.Service
 import qualified Network                   as N
 import qualified Network.Simple.TCP        as S
-import qualified Network.Socket.ByteString as NSB
-import           Pipes.Network.TCP         (Socket)
+import           Pipes.Network.TCP         (fromSocket,Socket)
 
--- -----------------------------------------------------------------------------
--- 
+-----------------------------------------------------------------------------
 
 data ConnectionCommand = 
     Connect Int
@@ -44,7 +43,6 @@ data EventIn =
 
 data ServiceOut = 
     ServiceStatus ServiceStatus
-  | ConnectionStatus ConnectionStatus
   | Stream ByteString
   | Log ByteString
     deriving Show  
@@ -61,8 +59,7 @@ makePrisms ''EventOut
 
 type SocketService = Service ServiceIn ServiceOut
 
--- -----------------------------------------------------------------------------
--- 
+-----------------------------------------------------------------------------
 
 data SocketServiceState = SocketServiceState
   { _ssServiceStatus :: ServiceStatus
@@ -74,8 +71,7 @@ instance Default SocketServiceState where
 
 makeLenses ''SocketServiceState
 
--- -----------------------------------------------------------------------------
--- 
+-----------------------------------------------------------------------------
 
 data SocketParams = SocketParams
     { _host      :: N.HostName
@@ -108,7 +104,7 @@ openConnection conn p = do
 closeConnection :: Connection -> IO ()
 closeConnection conn = do
   sock <- atomically (getSocket conn)
-  forM_ sock N.sClose
+  forM_ sock S.closeSock
   atomically $ clearSocket conn 
 
 clearSocket :: Connection -> STM ()
@@ -122,16 +118,48 @@ connection p = connectSocket p >>= either (const $ return Nothing) connection'
 connectSocket :: SocketParams -> IO (Either SomeException (S.Socket,S.SockAddr))
 connectSocket p = try $ S.connectSock (_host p) (_port p)
 
--- -----------------------------------------------------------------------------
--- 
+-----------------------------------------------------------------------------
 
-connectionReader :: Connection -> Int -> Output Bool -> Producer ByteString IO ()
-connectionReader conn nbytes status = forever $ do
-  sock <- liftIO $ atomically $ getSocket conn >>= maybe retry return 
-  bs <- liftIO $ NSB.recv sock nbytes
-  if B.null  bs
-    then void $ liftIO $ atomically $ clearSocket conn >> send status False
-    else yield bs
+connectionReader :: Buffer ByteString -> Connection -> Int -> Output Bool -> Managed (Controller ByteString)
+connectionReader buffer conn nbytes status = managed $ \k -> do
+  
+  (vOut, cOut, sOut) <- spawn' buffer
+  
+  let 
+
+    sealAll :: IO ()
+    sealAll = atomically sOut
+
+    stop :: Async () -> IO ()
+    stop a = do
+      wait a
+      sealAll
+
+    streamErrorHandler :: SomeException -> IO ()
+    streamErrorHandler _ = do
+      putStrLn "connectionReader stream error"
+      return ()
+
+    stream :: Socket -> IO ()
+    stream sock = handle streamErrorHandler $ do
+      runEffect $ fromSocket sock nbytes >-> toOutput vOut
+      void $ atomically $ clearSocket conn >> send status False
+
+    ioErrorHandler :: SomeException -> IO ()
+    ioErrorHandler e = do
+      putStrLn "connectionReader error"
+      sealAll
+      throwIO e
+
+    io :: IO ()
+    io = handle ioErrorHandler $ forever $ do
+      sock <- atomically $ getSocket conn >>= maybe retry return
+      void $ async $ stream sock
+      void $ atomically $ getSocket conn >>= maybe (return ()) (const retry)
+
+  withAsync io $ \a -> k (asInput cOut) <* stop a
+
+-----------------------------------------------------------------------------
 
 connectionWriter :: Connection -> Output Bool -> ByteString -> IO ()
 connectionWriter conn status bs =
@@ -144,8 +172,7 @@ connectionWriter conn status bs =
   disconnected :: IO ()
   disconnected = void $ atomically $ clearSocket conn >> send status False
 
--- -----------------------------------------------------------------------------
--- 
+-----------------------------------------------------------------------------
 
 connectionHandler :: SocketParams -> Connection -> Output Bool -> ConnectionCommand -> IO ()
 connectionHandler p conn status cmd = case cmd of
@@ -165,9 +192,12 @@ socketServiceModel = asPipe (loop model) >>> untilDone
       (ServiceIn (ConnectionCommand c))                -> yield (ConnectionOut c)
       (ServiceIn (Send bs))                            -> yield (SocketOut bs)
       (SocketIn bs)                                    -> yield (ServiceOut (Stream bs))
-      (ConnectionIn connected)                         -> yield (ServiceOut (ConnectionStatus (connected' connected)))
-  connected' True = ServiceConnected
-  connected' False = ServiceDisconnected
+      (ConnectionIn connected)                         -> do
+        let ss = connected' connected
+        lift $ ssServiceStatus .= ss
+        yield (ServiceOut (ServiceStatus ss))
+  connected' True = ServiceActive
+  connected' False = ServicePending
 
 untilDone :: Model SocketServiceState EventOut EventOut
 untilDone = asPipe go
@@ -175,8 +205,12 @@ untilDone = asPipe go
   go = do
     e <- await
     case e of
-      Done -> void $ yield (ConnectionOut Disconnect)
-      _    -> yield e >> go
+      Done -> void $ do
+        yield (ServiceOut $ Log "Socket Done")
+        yield (ServiceOut $ ServiceStatus ServiceTerminating)
+        yield (ConnectionOut Disconnect)
+        yield (ServiceOut $ ServiceStatus ServiceTerminated)
+      _ -> yield e >> go
 
 socketService :: SocketParams -> Managed SocketService
 socketService p = do
@@ -185,7 +219,7 @@ socketService p = do
 
   (vConnection, cConnection, sConnection) <- managed $ \k -> spawn' Unbounded >>= k
 
-  cSocketIn <- producer Single (connectionReader conn 4096 vConnection)
+  cSocketIn <- connectionReader Single conn 4096 vConnection
 
   managed $ \k -> do
 
@@ -199,7 +233,8 @@ socketService p = do
 
       view :: View EventOut
       view = mconcat
-        [ handles _ServiceOut (asSink $ void . atomically . send vServiceOut)
+        [ asSink (putStrLn . ("socketService view: " ++) . show)
+        , handles _ServiceOut (asSink $ void . atomically . send vServiceOut)
         , handles _SocketOut (asSink $ connectionWriter conn vConnection)
         , handles _ConnectionOut (asSink $ connectionHandler p conn vConnection)
         ]
@@ -207,7 +242,7 @@ socketService p = do
       controller :: Controller EventIn
       controller = mconcat
         [ ServiceIn <$> asInput cServiceIn
-        , SocketIn  <$> cSocketIn
+        , SocketIn <$> cSocketIn
         , ConnectionIn <$> asInput cConnection
         ]
 
@@ -216,15 +251,24 @@ socketService p = do
 
       errorHandler :: SomeException -> IO ()
       errorHandler e = do
-        putStrLn $ "Debug: socket core error: " ++ show e
+        putStrLn $ "Debug: socketService error: " ++ show e
         --TODO: take action depending on whehther async (ThreadKilled)
         --or sync exception
         closeConnection conn
         sealAll
-        throwIO e   
+        throwIO e  
+
+      stop :: Async () -> IO ()
+      stop a = do
+        putStrLn "socketService stop"
+        closeConnection conn
+        wait a
+        sealAll
       
       io :: IO ()
-      io = handle errorHandler $ void $ runMVC def socketServiceModel external
+      io = do
+        handle errorHandler $ void $ runMVC def socketServiceModel external
+        putStrLn "Debug: socketService finished"
 
-    withAsync io $ \_ -> k (Service vServiceIn cServiceOut) <* closeConnection conn <* sealAll
+    withAsync io $ \a -> k (Service vServiceIn cServiceOut) <* stop a
 

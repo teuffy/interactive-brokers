@@ -15,7 +15,12 @@ model = asPipe $ do
   yield $ Left $ ServiceCommand ServiceStart
   yield $ Left $ Send $ B.pack "hello\n"
   yield $ Left $ Send $ B.pack "yo\n"
-  --yield $ Left $ Command ServiceStop
+  --yield $ Left $ ServiceCommand ServicePause
+  yield $ Left $ ConnectionCommand Disconnect
+  --yield $ Left $ ServiceCommand ServiceStart
+  yield $ Left $ ConnectionCommand $ Connect 2
+  yield $ Left $ Send $ B.pack "hello\n"
+  yield $ Left $ Send $ B.pack "yo\n"
   for cat (yield . Right . show)
 
 external :: Managed (View (Either ServiceIn String), Controller ServiceOut)

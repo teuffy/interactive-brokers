@@ -1,4 +1,12 @@
-{-# LANGUAGE Arrows,DeriveDataTypeable,ImpredicativeTypes,OverloadedStrings,RankNTypes,RecordWildCards,ScopedTypeVariables,TemplateHaskell,TypeFamilies #-}
+{-# LANGUAGE Arrows #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module API.IB.Connection 
 
@@ -16,7 +24,7 @@ module API.IB.Connection
 
 import           Control.Applicative
 import           Control.Arrow                    (arr, (>>>),(|||))
-import           Control.Concurrent.Async         (withAsync)
+import           Control.Concurrent.Async         (Async,wait,withAsync)
 import           Control.Exception
 import           Control.Lens                     hiding (view)
 import           Control.Monad                    (forever,void,when)
@@ -119,40 +127,69 @@ makeLenses ''IBState
 
 eventHandler :: (Monad m) => Edge (S.StateT IBState m) () EventIn EventOut
 eventHandler = proc e -> case e of
-  ServiceIn (IBServiceRequest x)                     -> serviceRequestHandler -< x
-  ServiceIn (IBRequest x)                            -> ibRequestHandler -< x 
-  SocketIn (K.ServiceStatus x)                       -> socketStatusHandler -< x
-  SocketIn (K.ConnectionStatus ServiceConnecting)    -> ignoreHandler -< ()
-  SocketIn (K.ConnectionStatus ServiceConnected)     -> connectedHandler -< ()
-  SocketIn (K.ConnectionStatus ServiceDisconnecting) -> ignoreHandler -< ()
-  SocketIn (K.ConnectionStatus ServiceDisconnected)  -> disconnectedHandler -< ()
-  SocketIn (K.Stream x)                              -> streamInHandler -< x
-  SocketIn (K.Log x)                                 -> logHandler -< x
+  ServiceIn (IBServiceRequest x) -> serviceRequestHandler -< x
+  ServiceIn (IBRequest x)        -> ibRequestHandler -< x 
+  SocketIn (K.ServiceStatus x)   -> socketStatusHandler -< x
+  SocketIn (K.Stream x)          -> streamInHandler -< x
+  SocketIn (K.Log x)             -> logHandler -< x
+
+socketStatusHandler :: (Monad m) => Edge (S.StateT IBState m) () ServiceStatus EventOut
+socketStatusHandler = proc e -> case e of 
+  ServiceActive -> connectedHandler -< ()
+  ServicePending -> disconnectedHandler -< ()
+  ServiceTerminating -> ignoreHandler -< ()
+  ServiceTerminated -> disconnectedHandler -< ()
+  _ -> ignoreHandler -< ()
 
 serviceRequestHandler :: (Monad m) => Edge (S.StateT IBState m) () ServiceCommand EventOut
 serviceRequestHandler = proc e -> case e of  
   ServiceStart -> startupHandler -< ()
-  ServicePause -> logHandler -< "ServicePause command not yet implemented"
-  ServiceResume -> logHandler -< "ServiceResume command not yet implemented"
+  ServicePause -> pauseHandler -< ()
+  ServiceResume -> startupHandler -< ()
   ServiceStop -> shutdownHandler -< ()
   ServiceReportStatus -> serviceStatusRequestHandler -< e
 
 startupHandler :: (Monad m) => Edge (S.StateT IBState m) () () EventOut
 startupHandler = Edge $ push ~> \_ -> do
-  updateServiceStatus ServiceActivating
-  ibsConnectionStatus .= ServiceConnecting
-  yield $ SocketOut $ K.ServiceCommand ServiceStart
+  s <- use ibsServiceStatus
+  if s == ServicePending then do
+    c <- use ibsConnectionStatus 
+    if c `elem` [ServiceDisconnecting,ServiceDisconnected] then do
+      updateServiceStatus ServiceActivating
+      ibsConnectionStatus .= ServiceConnecting
+      yield $ SocketOut $ K.ServiceCommand ServiceStart
+    else 
+      updateServiceStatus $ if c == ServiceConnected then ServiceActive else ServiceActivating
+  else
+    yield $ ServiceOut $ Log "IB service start command submitted while service not pending"
+
+pauseHandler :: (Monad m) => Edge (S.StateT IBState m) () () EventOut
+pauseHandler = Edge $ push ~> \_ -> do
+  s <- use ibsServiceStatus
+  if s == ServiceActive then do
+    c <- use ibsConnectionStatus 
+    if c `elem` [ServiceConnecting,ServiceConnected] then do
+      updateServiceStatus ServicePausing
+      ibsConnectionStatus .= ServiceDisconnecting
+      yield $ SocketOut $ K.ServiceCommand ServicePause    
+    else 
+      updateServiceStatus ServicePending
+  else
+      yield $ ServiceOut $ Log "IB service pause command submitted while service not active"
 
 shutdownHandler :: (Monad m) => Edge (S.StateT IBState m) () () EventOut
 shutdownHandler = Edge $ push ~> \_ -> do
   s <- use ibsServiceStatus
-  when (s /= ServiceTerminated) $ do
-    ibsServiceStatus .= ServiceTerminating
+  if s `elem` [ServiceTerminating,ServiceTerminated] then
+    yield (ServiceOut $ Log "IB service stop command submitted while service terminated")
+  else do
     c <- use ibsConnectionStatus 
     if c `elem` [ServiceConnecting,ServiceConnected] then do
+      updateServiceStatus ServiceTerminating
       ibsConnectionStatus .= ServiceDisconnecting
       yield $ SocketOut $ K.ServiceCommand ServiceStop
-    else
+    else do
+      updateServiceStatus ServiceTerminated
       yield Done 
 
 serviceStatusRequestHandler :: (Monad m) => Edge (S.StateT IBState m) () ServiceCommand EventOut
@@ -169,14 +206,6 @@ ibRequestHandler = Edge $ push ~> \e -> do
       Just m -> yield $ SocketOut $ K.Send m
   else
     yield $ ServiceOut $ Log "IB request submitted while service inactive"
-
-socketStatusHandler :: (Monad m) => Edge (S.StateT IBState m) () ServiceStatus EventOut
-socketStatusHandler = proc e -> case e of
-  ServicePending -> logHandler -< "Service pending handler not yet implemented"
-  ServiceActivating -> logHandler -< "Service activating handler not yet implemented"
-  ServiceActive -> logHandler -< "Service active handler not yet implemented"
-  ServiceTerminating -> logHandler -< "Service terminating handler not yet implemented"
-  ServiceTerminated -> logHandler -< "Service terminated handler not yet implemented"
 
 streamInHandler :: (Monad m) => Edge (S.StateT IBState m) () ByteString EventOut
 streamInHandler = debugHandler >>> (arr id ||| (parseHandler >>> streamHandler))
@@ -223,9 +252,12 @@ disconnectedHandler = Edge $ push ~> \_ -> do
     updateServiceStatus ServiceActivating     
     ibsConnectionStatus .= ServiceConnecting
     yield $ SocketOut $ K.ConnectionCommand $ K.Connect d
-  else if s == ServiceTerminating then do
+  else if s == ServicePausing then do
+    updateServiceStatus ServicePending
     ibsConnectionStatus .= ServiceDisconnected
-    ibsServiceStatus .= ServiceTerminated
+  else if s == ServiceTerminating then do
+    updateServiceStatus ServiceTerminated
+    ibsConnectionStatus .= ServiceDisconnected
     yield Done
   else
     yield $ ServiceOut $ Log "Unexpected"
@@ -247,7 +279,9 @@ untilDone = asPipe go
     e <- await
     yield e
     case e of
-      Done -> return ()
+      Done -> do
+        yield $ ServiceOut $ Log "Connection Done"
+        return ()
       _    -> go
 
 -----------------------------------------------------------------------------
@@ -269,6 +303,7 @@ ibService conf@IBConfiguration{..} = do
 
       view :: View EventOut
       view = mconcat
+        --[ asSink (putStrLn . ("ibService view: " ++) . show)
         [ handles _ServiceOut (asSink $ void . atomically . send vServiceOut)
         , handles _SocketOut vSocket
         ]
@@ -293,10 +328,17 @@ ibService conf@IBConfiguration{..} = do
         autoStart <- lift $ use (ibsConfig . cfgAutoStart)
         when autoStart $ yield $ ServiceIn $ IBServiceRequest ServiceStart
         cat
-      
+
+      stop :: Async () -> IO ()
+      stop a = do
+        putStrLn "Debug: ibService stop"
+        --void $ atomically $ send vServiceIn $ IBServiceRequest ServiceStop
+        wait a
+        sealAll
+
       errorHandler :: SomeException -> IO ()
       errorHandler e = do
-        putStrLn $ "Debug: connection core error: " ++ show e
+        putStrLn $ "Debug: ibService error: " ++ show e
         --TODO: take action depending on whehther async (ThreadKilled)
         --or sync exception
         throwIO e   
@@ -307,8 +349,9 @@ ibService conf@IBConfiguration{..} = do
         let tzs' = Map.fromList $ zip (Map.keys _cfgTimeZones) tzs
         let initialState = def & (ibsConfig .~ conf) & (ibsTimeZones .~ tzs')
         void $ runMVC initialState model external
+        putStrLn "Debug: ibService finished"
 
-    withAsync io $ \_ -> k (Service vServiceIn cServiceOut) <* sealAll
+    withAsync io $ \a -> k (Service vServiceIn cServiceOut) <* stop a
 
 -----------------------------------------------------------------------------
 
@@ -328,21 +371,43 @@ withIB conf k = do
     external :: Managed (View IBServiceInOut, Controller IBServiceInOut)
     external = do
       (ibV,ibC) <- toManagedMVC $ toManagedService $ ibService conf
+      --tickC <- tick 1
       let 
         view = mconcat 
+          --[ asSink (putStrLn . ("withIB view: " ++) . show)
           [ handles _Left ibV
           , handles _Right (asSink $ void . atomically . send vServiceOut)
           ]
         controller = mconcat 
           [ Left <$> asInput cServiceIn
           , Right <$> ibC
+          --, const (Right $ Log "tick" ) <$> tickC
           ]
       return (view,controller)
+      
+    model :: Model () IBServiceInOut IBServiceInOut
+    model = asPipe cat
 
-    io = runMVC () (asPipe cat) external
+    stop :: Async () -> IO ()
+    stop a = do
+      putStrLn "Debug: withIB stop"
+      --runMVC () (asPipe $ yield $ Left $ IBServiceRequest ServiceStop) external
+      wait a
+      sealAll
+    
+    errorHandler :: SomeException -> IO ()
+    errorHandler e = do
+      putStrLn $ "Debug: withIB error: " ++ show e
+      --TODO: take action depending on whehther async (ThreadKilled)
+      --or sync exception
+      throwIO e   
 
-  withAsync io $ \_ -> k (Service vServiceIn cServiceOut) <* sealAll
+    io :: IO ()
+    io = handle errorHandler $ do
+      runMVC () model external
+      putStrLn "Debug: withIB finished"
 
+  withAsync io $ \a -> k (Service vServiceIn cServiceOut) <* stop a
 
 
 

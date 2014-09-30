@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -11,14 +12,18 @@ module API.IB.Monadic
   , connection
   , nextOrderId
   , nextRequestId
-  , connect
-  , disconnect
   , send
   , recv
+  , connect
+  , disconnect
+  , stop
+  , requestMarketData
+  , placeOrder
   , testIB
   ) where
 
 import           Control.Applicative
+import           Control.Error
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -36,6 +41,7 @@ import           System.Console.Haskeline
 
 import           API.IB.Connection
 import           API.IB.Data
+import           API.IB.Enum
 
 -----------------------------------------------------------------------------
 
@@ -65,7 +71,7 @@ newtype IB r =
   deriving (Functor,Applicative,Monad,MonadException,MonadIO,MonadReader IBService,MonadState IBState)
 
 runIB :: IBConfiguration -> IB a -> IO a
-runIB cfg ib = withIB cfg $ \ibs -> 
+runIB cfg ib = withIB (cfg & cfgAutoStart .~ False & cfgDebug .~ True) $ \ibs -> 
   flip S.evalStateT def $ flip R.runReaderT ibs $ unIB ib
 
 -----------------------------------------------------------------------------
@@ -79,36 +85,14 @@ accounts = use ibsAccounts
 connection :: IB (Maybe IBConnection)
 connection = use ibsConnection 
 
+serverVersion :: IB (Maybe Int)
+serverVersion = fmap (view connServerVersion) <$> connection
+
 nextOrderId :: IB (Maybe Int)
 nextOrderId = use ibsNextOrderId
 
 nextRequestId :: IB Int
 nextRequestId = use ibsNextRequestId
-
------------------------------------------------------------------------------
-
-connect :: IB Bool
-connect = send (IBServiceRequest ServiceStart) >> loop
-  where
-  loop = do
-    msg <- recv 
-    --liftIO $ print msg
-    case msg of
-      Just (IBResponse (Connection c@IBConnection{})) -> do
-        ibsConnection .= Just c
-        loop
-      Just (IBResponse (ManagedAccounts acs)) -> do
-        ibsAccounts .= acs 
-        loop
-      Just (IBServiceStatus sts) -> do
-        ibsServiceStatus .= sts
-        if sts == ServiceActive
-          then return True 
-          else loop
-      _ -> loop
-
-disconnect :: IB Bool
-disconnect = undefined
 
 -----------------------------------------------------------------------------
 
@@ -128,11 +112,62 @@ recv = do
   resp <- asks response -- use lens when Service updated
   msg <- (liftIO . atomically . M.recv) resp 
   case msg of 
-    Just (IBResponse (NextValidId oid)) -> do
+    Just (IBResponse (Connection c@IBConnection{})) -> 
+      ibsConnection .= Just c
+    Just (IBResponse (ManagedAccounts acs)) ->
+        ibsAccounts .= acs 
+    Just (IBResponse (NextValidId oid)) ->
       ibsNextOrderId .= Just oid 
-      return msg
-    _ -> return msg
-      
+    Just (IBServiceStatus sts) -> do
+      unless (sts == ServiceActive) $ put def 
+      ibsServiceStatus .= sts
+    _ -> return ()
+  return msg  
+
+-----------------------------------------------------------------------------
+
+connect :: IB (Maybe IBConnection)
+connect = send (IBServiceRequest ServiceStart) >> loop
+  where
+  loop = do
+    msg <- recv 
+    liftIO $ print msg
+    case msg of
+      Nothing -> return Nothing
+      Just (IBServiceStatus sts) ->
+        if sts == ServiceActive
+          then connection
+          else loop
+      _ -> loop
+
+disconnect :: IB ()
+disconnect = void $ send (IBServiceRequest ServicePause)
+
+stop :: IB ()
+stop = send (IBServiceRequest ServiceStop) >> loop
+  where
+  loop = recv >>= \case
+    Just (IBServiceStatus ServiceTerminated) -> return ()
+    _ -> loop
+
+-----------------------------------------------------------------------------
+
+requestMarketData :: IBContract -> [IBGenericTickType] -> Bool -> IB Bool
+requestMarketData contract genticktypes snapshot = do
+  sent <- runMaybeT $ do
+    sv <- MaybeT serverVersion
+    rid <- lift nextRequestId
+    lift $ send $ IBRequest $ RequestMarketData sv rid contract genticktypes snapshot
+  maybe (return False) return sent
+
+placeOrder :: IBContract -> IBOrder -> IB Bool
+placeOrder contract order = do
+  sent <- runMaybeT $ do 
+    sv <- MaybeT serverVersion
+    oid <- MaybeT nextOrderId
+    lift $ send $ IBRequest $ PlaceOrder sv oid contract order
+  maybe (return False) return sent
+  
 -----------------------------------------------------------------------------
 
 testIB :: IO ()

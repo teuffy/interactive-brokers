@@ -9,6 +9,7 @@ To Do List
 
 ### Defects
 
+* Requests-Simple: thread blocked indefinitely in an STM transaction
 * Build on GHC 7.8.x
 * Test pico issue on GHC 7.8.x
 
@@ -18,8 +19,8 @@ To Do List
 * Add a connection timeout (secs) config setting?
 * Simple interface (connection object)?
 * Remaining IB requests and responses (summarise here from list in Enum.hs)
-* Higher level API for requests (e.g. create order, including attached orders, oco orders, etc.)
 * Logging
+* Contract database, automated update
 
 ### Build
 
@@ -42,13 +43,29 @@ To Do List
 ### Sample apps
 
 * Requests-Simple: rename, add all requests
-* Requests-Service: rename, change to be a basic algo trader (e.g. moving average crossover)
-* Shell: IB shell (build into API?) - add full request support, single command invocation
+* Requests-Service: rename, change to be a basic algo trader (e.g. moving average crossover), separate project?
+* Shell: IB shell (build into API?) - convert to IB monad, add full request support, single command invocation
 * Capture (new): historical/streaming market data to file/db
+
+### Connection
+
+* Add remaining conditions to ensure state machine is robust (e.g. can't process start unless pending) and invalid commands/condtions are logged
+* ServiceCommand: implement pause, resume
+* Socket service status messages: implement handlers
+* ibsNextRequestId: add? if so, implment update logic
+* Check client server version <= server version
+* Error handler for error responses from IB (see IB API docs for error codes)
+* Error response messages - see EClientSocket.java e.g. not connected, cannot send (also cannot create which currently only logs a message)
 
 ### Monadic interface
 
 * Disconnect
+* Simplify handling of request/order id's and server version in request messages
+
+### Builder
+
+* Contract builders: stock, forex, option
+* Order builders: stop/limit/stoplimit orders, attached orders (stop loss, profit target, oco stop and profit target)
 
 ### Data 
 
@@ -58,15 +75,6 @@ To Do List
 * IBOrder: decomposition may allow a single maybe for related fields
 * Consistent use of IB prefix for data type names (e.g. IBRequest and IBResponse constructors and fields)
 * Use Data.Default for base instances (vs newIBContract, etc.)
-
-### Event Processor
-
-* ServiceCommand: implement pause, resume
-* Socket service status messages: implement handlers
-* ibsNextRequestId: add? if so, implment update logic
-* Check client server version <= server version
-* Error handler for error responses from IB (see IB API docs for error codes)
-* Error response messages - see EClientSocket.java e.g. not connected, cannot send (also cannot create which currently only logs a message)
 
 ### Requests
 
@@ -95,6 +103,7 @@ To Do List
 ### MVC Service
 
 * Lenses for Service
+* Service resume command needed (vs reuse service start in paused status)
 
 
 
