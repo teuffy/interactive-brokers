@@ -24,7 +24,7 @@ module API.IB.Connection
 
 import           Control.Applicative
 import           Control.Arrow                    (arr, (>>>),(|||))
-import           Control.Concurrent.Async         (Async,wait,withAsync)
+import           Control.Concurrent.Async         (Async,cancel,wait,withAsync)
 import           Control.Exception
 import           Control.Lens                     hiding (view)
 import           Control.Monad                    (forever,void,when)
@@ -101,7 +101,7 @@ instance Default IBConfiguration where
     , _cfgDebug = False
     , _cfgClientId = 0
     , _cfgConnRetryDelaySecs = 10
-    , _cfgSocketParams = K.SocketParams "127.0.0.1" "7496" False
+    , _cfgSocketParams = K.SocketParams "127.0.0.1" "7496"
     , _cfgTimeZones = ibTimeZones
     } 
 
@@ -289,7 +289,8 @@ untilDone = asPipe go
 ibService :: IBConfiguration -> Managed IBService
 ibService conf@IBConfiguration{..} = do
   
-  (vSocket,cSocket) <- toManagedMVC $ toManagedService $ K.socketService _cfgSocketParams
+  (vSocket,cSocket) <- toManagedMVC $ toManagedService $
+    K.socketService $ def & K.scSocketParams .~ _cfgSocketParams
 
   managed $ \k -> do
 
@@ -333,7 +334,7 @@ ibService conf@IBConfiguration{..} = do
       stop a = do
         putStrLn "Debug: ibService stop"
         --void $ atomically $ send vServiceIn $ IBServiceRequest ServiceStop
-        wait a
+        cancel a
         sealAll
 
       errorHandler :: SomeException -> IO ()

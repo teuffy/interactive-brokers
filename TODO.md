@@ -19,8 +19,9 @@ To Do List
 * Add a connection timeout (secs) config setting?
 * Simple interface (connection object)?
 * Remaining IB requests and responses (summarise here from list in Enum.hs)
-* Logging
+* Logging (hslogger?)
 * Contract database, automated update
+* SSL connection to IB TWS
 
 ### Build
 
@@ -98,6 +99,7 @@ To Do List
 * Tidy up Connection code, consistent use of STM vs IO
 * Streamline verbose code e.g. atomically
 * Secure SSL option
+* Command to change socket host/port
 * Tests and benchmarks
 
 ### MVC Service
