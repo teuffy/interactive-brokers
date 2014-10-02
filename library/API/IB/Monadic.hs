@@ -24,6 +24,8 @@ module API.IB.Monadic
   , requestOpenOrders
   , requestAccountData
   , requestExecutions
+  , requestIds
+  , requestContractData
   , testIB
   ) where
 
@@ -47,6 +49,7 @@ import           System.Console.Haskeline
 import           API.IB.Connection
 import           API.IB.Data
 import           API.IB.Enum
+import           API.IB.Util
 
 -----------------------------------------------------------------------------
 
@@ -136,7 +139,7 @@ connect = send (IBServiceRequest ServiceStart) >> loop
   where
   loop = do
     msg <- recv 
-    liftIO $ print msg
+    --liftIO $ print msg
     case msg of
       Nothing -> return Nothing
       Just (IBServiceStatus sts) ->
@@ -156,10 +159,6 @@ stop = send (IBServiceRequest ServiceStop) >> loop
     _ -> loop
 
 -----------------------------------------------------------------------------
-
-hushMaybe :: Maybe a -> Bool
-hushMaybe Nothing = False
-hushMaybe _ = True
 
 requestMarketData :: IBContract -> [IBGenericTickType] -> Bool -> IB (Maybe Int)
 requestMarketData contract genticktypes snapshot = runMaybeT $ do
@@ -192,6 +191,16 @@ requestAccountData subscribe accountcode = fmap hushMaybe $ runMaybeT $ do
 
 requestExecutions :: Int -> IBExecutionFilter -> IB Bool
 requestExecutions requestid = send . IBRequest . RequestExecutions requestid
+
+requestIds :: Int -> IB Bool
+requestIds = send . IBRequest . RequestIds
+
+requestContractData :: IBContract -> IB (Maybe Int)
+requestContractData contract = runMaybeT $ do
+  sv <- MaybeT serverVersion
+  rid <- lift nextRequestId
+  sent <- lift $ send $ IBRequest $ RequestContractData sv rid contract
+  bool nothing (just rid) sent
 
 -----------------------------------------------------------------------------
 

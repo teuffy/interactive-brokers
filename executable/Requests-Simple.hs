@@ -26,14 +26,7 @@ conESZ4 :: IBContract
 conESZ4 = future "ES" "ESZ4" (fromGregorian 2014 12 19) GLOBEX "USD" 
 
 -- -----------------------------------------------------------------------------
--- Main
-
-main :: IO ()
-main = do
-  handler <- streamHandler stdout DEBUG >>= \h -> return $
-   setFormatter h $ simpleLogFormatter "$time $loggername $prio: $msg"
-  updateGlobalLogger rootLoggerName (setLevel DEBUG . setHandlers [handler])
-  finally (runIB def requests) (threadDelay 1000000)
+-- Requests
 
 requests :: IB ()
 requests = do
@@ -62,4 +55,12 @@ requests = do
   io = liftIO . putStrLn
   io' = io . show
   
+-- -----------------------------------------------------------------------------
+-- Main
 
+main :: IO ()
+main = do
+  handler <- streamHandler stdout DEBUG >>= \h -> return $
+   setFormatter h $ simpleLogFormatter "$time $loggername $prio: $msg"
+  updateGlobalLogger rootLoggerName (setLevel DEBUG . setHandlers [handler])
+  finally (runIB def requests) (threadDelay 1000000)

@@ -126,7 +126,7 @@ processRequests svc@IBEventHandler{..} = do
      , rq $ RequestMarketData sv 2 conESZ4 [] False
      , rq $ RequestRealTimeBars sv 3 conESZ4 5 BarBasisTrades False
      , rq $ RequestHistoricalData sv 4 conESZ4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
-     , rq $ RequestIds sv 3
+     , rq $ RequestIds 3
      --, rq $ PlaceOrder sv oid conESZ4 (marketOrder oid _ibClientId Buy 1)
      --, rq $ PlaceOrder sv boid conESZ4 (marketOrder oid _ibClientId Sell 1)
      --, rq $ CancelOrder oid
@@ -137,7 +137,6 @@ processRequests svc@IBEventHandler{..} = do
      , rq $ RequestAccountData sv True (head _ibManagedAccounts)
      , rq $ RequestAccountSummary sv 5 All [NetLiquidation]
      , rq $ RequestPositions sv
-     , rq $ RequestIds sv 3
      , rq $ RequestManagedAccounts sv
      , rq $ CancelAccountSummary sv 5
      , rq $ RequestExecutions 6 newIBExecutionFilter

@@ -25,6 +25,10 @@ boolBinary :: Bool -> Int
 boolBinary False = 0
 boolBinary True = 1
 
+hushMaybe :: Maybe a -> Bool
+hushMaybe Nothing = False
+hushMaybe _ = True
+
 stringToMaybe :: String -> Maybe String
 stringToMaybe s 
   | null s = Nothing

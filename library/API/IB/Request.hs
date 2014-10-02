@@ -71,7 +71,7 @@ createMsg request = case request of
   RequestOpenOrders -> createRequestOpenOrdersMsg
   (RequestAccountData sv sub ac) -> createRequestAccountDataMsg sv sub ac
   (RequestExecutions rid ef) -> createRequestExecutionsMsg rid ef 
-  (RequestIds sv n) -> createRequestIdsMsg sv n
+  (RequestIds n) -> createRequestIdsMsg n
   (RequestContractData sv rid c) -> createRequestContractDataMsg sv rid c
   (RequestAutoOpenOrders sv ab) -> createRequestAutoOpenOrdersMsg sv ab
   (RequestAllOpenOrders sv) -> createRequestAllOpenOrdersMsg sv
@@ -333,8 +333,8 @@ createRequestExecutionsMsg requestid IBExecutionFilter{..} =
 
 -- -----------------------------------------------------------------------------
 
-createRequestIdsMsg :: Int -> Int -> Msg
-createRequestIdsMsg _ numids = return $ ibMsg 1 ReqIdsT [intDec numids]
+createRequestIdsMsg :: Int -> Msg
+createRequestIdsMsg numids = return $ ibMsg 1 ReqIdsT [intDec numids]
 
 -- -----------------------------------------------------------------------------
 

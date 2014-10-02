@@ -93,8 +93,7 @@ data IBRequest =
     , _reqExecutionFilter :: IBExecutionFilter
     }
   | RequestIds 
-    { _reqServerVersion :: Int 
-    , _reqNumIds :: Int
+    { _reqNumIds :: Int
     }
   | RequestContractData 
     { _reqServerVersion :: Int

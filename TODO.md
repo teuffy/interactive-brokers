@@ -70,6 +70,10 @@ To Do List
 * Consistent use of IB prefix for data type names (e.g. IBRequest and IBResponse constructors and fields)
 * Use Data.Default for base instances (vs newIBContract, etc.)
 
+### Enum
+
+* Consider reducing duplication across encode and show (e.g. with a common mapping data structure)
+
 ### Requests
 
 * Remove unnecessary server version parameters and attributes (also Data)
