@@ -19,7 +19,6 @@ module API.IB.Connection
   , IBService
   , withIB
   , cfgAutoStart
-  , cfgDebug
   ) where
 
 import           Control.Applicative
@@ -42,6 +41,8 @@ import           MVC
 import           MVC.Event
 import           MVC.Service
 import           Pipes.Core
+import qualified System.Log.Logger                as L
+import           System.Log.Logger.TH             (deriveLoggers)
 
 import qualified MVC.Socket                       as K
 import           Pipes.Edge
@@ -50,6 +51,10 @@ import           API.IB.Constant
 import           API.IB.Data
 import           API.IB.Request
 import           API.IB.Util
+
+-----------------------------------------------------------------------------
+
+$(deriveLoggers "L" [L.DEBUG])
 
 -----------------------------------------------------------------------------
 
@@ -88,7 +93,6 @@ type IBService = Service ServiceIn ServiceOut
 
 data IBConfiguration = IBConfiguration
   { _cfgAutoStart :: Bool
-  , _cfgDebug :: Bool
   , _cfgClientId :: Int
   , _cfgConnRetryDelaySecs :: Int
   , _cfgSocketParams :: K.SocketParams
@@ -98,7 +102,6 @@ data IBConfiguration = IBConfiguration
 instance Default IBConfiguration where 
   def = IBConfiguration 
     { _cfgAutoStart = True
-    , _cfgDebug = False
     , _cfgClientId = 0
     , _cfgConnRetryDelaySecs = 10
     , _cfgSocketParams = K.SocketParams "127.0.0.1" "7496"
@@ -106,8 +109,9 @@ instance Default IBConfiguration where
     } 
 
 data IBState = IBState
-  { _ibsConfig      :: IBConfiguration
+  { _ibsConfig :: IBConfiguration
   , _ibsConnectionStatus :: ConnectionStatus
+  , _ibsDebug :: Bool
   , _ibsServiceStatus :: ServiceStatus
   , _ibsTimeZones :: Map String TZ
   } 
@@ -116,6 +120,7 @@ instance Default IBState where
   def = IBState 
     { _ibsConfig = def
     , _ibsServiceStatus = ServicePending
+    , _ibsDebug = False
     , _ibsConnectionStatus = ServiceDisconnected
     , _ibsTimeZones = Map.empty
     }
@@ -211,7 +216,7 @@ streamInHandler :: (Monad m) => Edge (S.StateT IBState m) () ByteString EventOut
 streamInHandler = debugHandler >>> (arr id ||| (parseHandler >>> streamHandler))
   where
   debugHandler = Edge $ \e -> do 
-    dbg <- use (ibsConfig . cfgDebug)
+    dbg <- use ibsDebug
     push e >-> forever (do
       e' <- await
       when dbg $ yield $ Left $ ServiceOut $ Log e'
@@ -332,25 +337,26 @@ ibService conf@IBConfiguration{..} = do
 
       stop :: Async () -> IO ()
       stop a = do
-        putStrLn "Debug: ibService stop"
+        debugM "ibService stop"
         --void $ atomically $ send vServiceIn $ IBServiceRequest ServiceStop
         cancel a
         sealAll
 
       errorHandler :: SomeException -> IO ()
       errorHandler e = do
-        putStrLn $ "Debug: ibService error: " ++ show e
+        debugM $ "ibService error: " ++ show e
         --TODO: take action depending on whehther async (ThreadKilled)
         --or sync exception
         throwIO e   
 
       io :: IO ()
       io = handle errorHandler $ do
+        debug <- ((== Just L.DEBUG) . L.getLevel) <$> L.getRootLogger
         tzs <- loadTimeZones $ Map.elems _cfgTimeZones
         let tzs' = Map.fromList $ zip (Map.keys _cfgTimeZones) tzs
-        let initialState = def & (ibsConfig .~ conf) & (ibsTimeZones .~ tzs')
+        let initialState = def & (ibsConfig .~ conf) & (ibsDebug .~ debug) & (ibsTimeZones .~ tzs')
         void $ runMVC initialState model external
-        putStrLn "Debug: ibService finished"
+        debugM "ibService end"
 
     withAsync io $ \a -> k (Service vServiceIn cServiceOut) <* stop a
 
@@ -391,14 +397,14 @@ withIB conf k = do
 
     stop :: Async () -> IO ()
     stop a = do
-      putStrLn "Debug: withIB stop"
+      debugM "withIB stop"
       --runMVC () (asPipe $ yield $ Left $ IBServiceRequest ServiceStop) external
       wait a
       sealAll
     
     errorHandler :: SomeException -> IO ()
     errorHandler e = do
-      putStrLn $ "Debug: withIB error: " ++ show e
+      debugM $ "withIB error: " ++ show e
       --TODO: take action depending on whehther async (ThreadKilled)
       --or sync exception
       throwIO e   
@@ -406,7 +412,7 @@ withIB conf k = do
     io :: IO ()
     io = handle errorHandler $ do
       runMVC () model external
-      putStrLn "Debug: withIB finished"
+      debugM "withIB end"
 
   withAsync io $ \a -> k (Service vServiceIn cServiceOut) <* stop a
 

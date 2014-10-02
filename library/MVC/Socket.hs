@@ -20,8 +20,14 @@ import           Data.Foldable             (forM_)
 import           MVC
 import           MVC.Service
 import           Network.Simple.TCP        hiding (send)
-import qualified Network.Simple.TCP as S   (send)
+import qualified Network.Simple.TCP        as S (send)
 import           Pipes.Network.TCP         (fromSocket)
+import qualified System.Log.Logger         as L
+import           System.Log.Logger.TH      (deriveLoggers)
+
+-----------------------------------------------------------------------------
+
+$(deriveLoggers "L" [L.DEBUG])
 
 -----------------------------------------------------------------------------
 
@@ -72,12 +78,11 @@ instance Default SocketParams where
 
 data SocketConfiguration = SocketConfiguration
   { _scAutoStart :: Bool
-  , _scDebug :: Bool
   , _scSocketParams :: SocketParams
   } deriving (Eq,Show)
 
 instance Default SocketConfiguration where
-  def = SocketConfiguration False False def
+  def = SocketConfiguration False def
 
 data SocketState = SocketState
   { _ssConfig :: SocketConfiguration
@@ -136,22 +141,19 @@ connectSocket SocketParams{..} = try $ connectSock _spHostName _spServiceName
 
 -----------------------------------------------------------------------------
 
-connectionReader :: Bool -> Buffer ByteString -> Connection -> Int -> Output Bool -> Managed (Controller ByteString)
-connectionReader dbg buffer conn nbytes status = managed $ \k -> do
+connectionReader :: Buffer ByteString -> Connection -> Int -> Output Bool -> Managed (Controller ByteString)
+connectionReader buffer conn nbytes status = managed $ \k -> do
   
   (vOut, cOut, sOut) <- spawn' buffer
   
   let 
-
-    debug :: String -> IO ()
-    debug = when dbg . putStrLn
 
     sealAll :: IO ()
     sealAll = atomically sOut
 
     streamErrorHandler :: SomeException -> IO ()
     streamErrorHandler e =
-      debug $ "Debug: connectionReader stream error: " ++ show e
+      debugM $ "connectionReader stream error: " ++ show e
       --throwIO e
 
     stream :: Socket -> IO ()
@@ -161,7 +163,7 @@ connectionReader dbg buffer conn nbytes status = managed $ \k -> do
 
     ioErrorHandler :: SomeException -> IO ()
     ioErrorHandler e = do
-      debug $ "Debug: connectionReader error: " ++ show e
+      debugM $ "connectionReader error: " ++ show e
       sealAll
       --throwIO e
 
@@ -173,7 +175,7 @@ connectionReader dbg buffer conn nbytes status = managed $ \k -> do
 
     stop :: Async () -> IO ()
     stop a = do
-      debug "Debug: connectionReader stop"
+      debugM "connectionReader stop"
       cancel a
       sealAll
 
@@ -255,7 +257,7 @@ socketService SocketConfiguration{..} = do
 
   (vConnection, cConnection, sConnection) <- managed $ \k -> spawn' Unbounded >>= k
 
-  cSocketIn <- connectionReader _scDebug Single conn 4096 vConnection
+  cSocketIn <- connectionReader Single conn 4096 vConnection
 
   managed $ \k -> do
 
@@ -263,9 +265,6 @@ socketService SocketConfiguration{..} = do
     (vServiceOut, cServiceOut, sServiceOut) <- spawn' Unbounded
   
     let
-
-      debug :: String -> IO ()
-      debug = when _scDebug . putStrLn
 
       sealAll :: IO ()
       sealAll = atomically $ sServiceIn >> sServiceOut >> sConnection
@@ -290,7 +289,7 @@ socketService SocketConfiguration{..} = do
 
       errorHandler :: SomeException -> IO ()
       errorHandler e = do
-        debug $ "Debug: socketService error: " ++ show e
+        debugM $ "socketService error: " ++ show e
         --TODO: take action depending on whehther async (ThreadKilled)
         --or sync exception
         closeConnection conn
@@ -299,12 +298,13 @@ socketService SocketConfiguration{..} = do
       
       io :: IO ()
       io = do
+        debugM "socketService start"
         handle errorHandler $ void $ runMVC def socketServiceModel external
-        debug "Debug: socketService finished"
+        debugM "socketService end"
 
       stop :: Async () -> IO ()
       stop a = do
-        debug "Debug: socketService stop"
+        debugM "socket service stop"
         closeConnection conn
         cancel a
         sealAll

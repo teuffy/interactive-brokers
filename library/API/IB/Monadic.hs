@@ -71,7 +71,7 @@ newtype IB r =
   deriving (Functor,Applicative,Monad,MonadException,MonadIO,MonadReader IBService,MonadState IBState)
 
 runIB :: IBConfiguration -> IB a -> IO a
-runIB cfg ib = withIB (cfg & cfgAutoStart .~ False & cfgDebug .~ True) $ \ibs -> 
+runIB cfg ib = withIB (cfg & cfgAutoStart .~ False) $ \ibs -> 
   flip S.evalStateT def $ flip R.runReaderT ibs $ unIB ib
 
 -----------------------------------------------------------------------------

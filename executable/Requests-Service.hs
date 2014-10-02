@@ -12,8 +12,10 @@
 
 module Main where
 
-import           Control.Applicative   ((<$>))
-import           Control.Category      ((>>>))
+import           Control.Applicative       ((<$>))
+import           Control.Category          ((>>>))
+import           Control.Concurrent        (threadDelay)
+import           Control.Exception
 import           Control.Lens
 import           Data.Default
 import           Data.Time
@@ -21,9 +23,14 @@ import           Data.Time.Zones
 import           Data.Typeable
 import           MVC
 import           MVC.Prelude
-import           MVC.Event             hiding (handleEvent)
+import           MVC.Event                 hiding (handleEvent)
 import           MVC.EventHandler
 import           MVC.Service
+import           System.IO                 (stdout)
+import           System.Log.Formatter      (simpleLogFormatter)
+import           System.Log.Handler        (setFormatter)
+import           System.Log.Handler.Simple (streamHandler)
+import           System.Log.Logger
 
 import           API.IB
 
@@ -197,7 +204,7 @@ model = asPipe (runRecursiveEventHandler eventHandler) >>> untilDone
 
 services :: Managed (View SomeEvent, Controller SomeEvent)
 services = do
-  (ibV,ibC) <- toManagedMVC $ processesEvent $ toManagedService $ ibService $ def & cfgDebug .~ True
+  (ibV,ibC) <- toManagedMVC $ processesEvent $ toManagedService $ ibService def
   let stdOutV = contramap show stdoutLines
   stdInC <- stdinLines
   return (ibV <> stdOutV,(SomeEvent <$> stdInC) <> ibC) 
@@ -206,5 +213,8 @@ services = do
 -- Main
 
 main :: IO ()
-main = runMVC () model services
-
+main = do
+  handler <- streamHandler stdout DEBUG >>= \h -> return $
+   setFormatter h $ simpleLogFormatter "$time $loggername $prio: $msg"
+  updateGlobalLogger rootLoggerName (setLevel DEBUG . setHandlers [handler])
+  finally (runMVC () model services) (threadDelay 1000000)
