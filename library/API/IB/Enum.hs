@@ -903,6 +903,7 @@ data IBExchange =
     GLOBEX
   | LSE
   | NASDAQ
+  | NYMEX
   | NYSE
   | Other String
     deriving (Eq,Ord,Read,Show)

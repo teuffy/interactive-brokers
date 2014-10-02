@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Main where
 
@@ -13,8 +14,11 @@ import           API.IB
 
 -----------------------------------------------------------------------------
 
-conESZ4 :: IBContract
-conESZ4 = future "ES" "ESZ4" (fromGregorian 2014 12 19) GLOBEX "USD" 
+conES :: IBContract
+conES = future "ES" "ESZ4" (fromGregorian 2014 12 19) GLOBEX "USD" 
+
+conGC :: IBContract
+conGC = future "GC" "GCZ4" (fromGregorian 2014 12 29) NYMEX "USD" 
 
 -----------------------------------------------------------------------------
 
@@ -28,31 +32,34 @@ ibShell = lift connect >> go
       Just "" -> go
       Just "help" -> help >> go
       Just "quit" -> quit
-      Just "con" -> getContract >> go
-      Just "price" -> getPrice >> go
+      Just "con es" -> getContract conES >> go
+      Just "con gc" -> getContract conGC >> go
+      Just "price es" -> getPrice conES >> go
+      Just "price gc" -> getPrice conGC >> go
       Just _ -> help >> go 
 
 help :: InputT IB ()
-help = outputStrLn "commands: help, quit, con, price"
+help = outputStrLn "commands: help, quit, con [es|gc], price [es|gc]"
 
 quit :: InputT IB ()
 quit = lift disconnect
 
-getContract :: InputT IB ()
-getContract = do
-  void $ lift $ requestContractData conESZ4
-  untilM $ do
-    r <- lift recv
-    case r of
-      Just (IBResponse c@ContractData{}) -> outputStrLn (show c) >> return False
-      Just (IBResponse ContractDataEnd{}) -> return True
-      _ -> return False
+getContract :: IBContract -> InputT IB ()
+getContract con = lift (requestContractData con) >>= \case
+  Nothing -> outputStrLn "Request failed"
+  Just rid -> untilRecv $ \case
+    IBResponse c@ContractData{..} -> if _cdReqId == rid 
+      then outputStrLn (show c) >> return True
+      else return False 
+    _ -> return False
 
-getPrice :: InputT IB ()
-getPrice = do
-  void $ lift $ requestMarketData conESZ4 [] False
-  untilRecv $ \case
-    IBResponse tp@TickPrice{} -> outputStrLn (show tp) >> return True
+getPrice :: IBContract -> InputT IB ()
+getPrice con = lift (requestMarketData con [] False) >>= \case
+  Nothing -> outputStrLn "Request failed"
+  Just rid -> untilRecv $ \case
+    IBResponse tp@TickPrice{..} -> if _tpTickerId == rid 
+      then outputStrLn (show tp) >> return True
+      else return False
     _ -> return False
 
 -----------------------------------------------------------------------------
