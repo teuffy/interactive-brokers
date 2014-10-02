@@ -207,8 +207,8 @@ ibRequestHandler = Edge $ push ~> \e -> do
   s <- use ibsServiceStatus
   if s == ServiceActive then
     case createMsg e of
-      Nothing -> yield $ ServiceOut $ Log "Cannot create request message"
-      Just m -> yield $ SocketOut $ K.Send m
+      Left err -> yield $ ServiceOut $ Log $ "Cannot create request message: " <> BC.pack (show err)
+      Right m -> yield $ SocketOut $ K.Send m
   else
     yield $ ServiceOut $ Log "IB request submitted while service inactive"
 

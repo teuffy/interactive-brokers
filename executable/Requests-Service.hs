@@ -129,8 +129,8 @@ processRequests svc@IBEventHandler{..} = do
      , rq $ RequestIds sv 3
      --, rq $ PlaceOrder sv oid conESZ4 (marketOrder oid _ibClientId Buy 1)
      --, rq $ PlaceOrder sv boid conESZ4 (marketOrder oid _ibClientId Sell 1)
-     --, rq $ CancelOrder sv oid
-     , rq $ RequestOpenOrders sv
+     --, rq $ CancelOrder oid
+     , rq   RequestOpenOrders
      , rq $ RequestAllOpenOrders sv
      , rq $ RequestAutoOpenOrders sv False
      , rq $ RequestManagedAccounts sv

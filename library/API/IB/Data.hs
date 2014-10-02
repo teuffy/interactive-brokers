@@ -71,8 +71,7 @@ data IBRequest =
     , _reqSnapshotFlag :: Bool
     } 
   | CancelMarketData
-    { _reqServerVersion :: Int
-    , _reqTickerId :: Int
+    { _reqTickerId :: Int
     }
   | PlaceOrder 
     { _reqServerVersion :: Int
@@ -81,20 +80,16 @@ data IBRequest =
     , _reqOrder :: IBOrder
     }
   | CancelOrder
-    { _reqServerVersion :: Int 
-    , _reqOrderId :: Int 
+    { _reqOrderId :: Int 
     }
-  | RequestOpenOrders 
-    { _reqServerVersion :: Int
-    }
+  | RequestOpenOrders
   | RequestAccountData 
     { _reqServerVersion :: Int
     , _reqSubscribe :: Bool 
     , _reqAccount :: String --RF: Text
     }
   | RequestExecutions 
-    { _reqServerVersion :: Int
-    , _reqRequestId :: Int 
+    { _reqRequestId :: Int 
     , _reqExecutionFilter :: IBExecutionFilter
     }
   | RequestIds 

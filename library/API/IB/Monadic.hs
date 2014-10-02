@@ -18,7 +18,12 @@ module API.IB.Monadic
   , disconnect
   , stop
   , requestMarketData
+  , cancelMarketData
   , placeOrder
+  , cancelOrder
+  , requestOpenOrders
+  , requestAccountData
+  , requestExecutions
   , testIB
   ) where
 
@@ -152,22 +157,42 @@ stop = send (IBServiceRequest ServiceStop) >> loop
 
 -----------------------------------------------------------------------------
 
-requestMarketData :: IBContract -> [IBGenericTickType] -> Bool -> IB Bool
-requestMarketData contract genticktypes snapshot = do
-  sent <- runMaybeT $ do
-    sv <- MaybeT serverVersion
-    rid <- lift nextRequestId
-    lift $ send $ IBRequest $ RequestMarketData sv rid contract genticktypes snapshot
-  maybe (return False) return sent
+hushMaybe :: Maybe a -> Bool
+hushMaybe Nothing = False
+hushMaybe _ = True
 
-placeOrder :: IBContract -> IBOrder -> IB Bool
-placeOrder contract order = do
-  sent <- runMaybeT $ do 
-    sv <- MaybeT serverVersion
-    oid <- MaybeT nextOrderId
-    lift $ send $ IBRequest $ PlaceOrder sv oid contract order
-  maybe (return False) return sent
-  
+requestMarketData :: IBContract -> [IBGenericTickType] -> Bool -> IB (Maybe Int)
+requestMarketData contract genticktypes snapshot = runMaybeT $ do
+  sv <- MaybeT serverVersion
+  rid <- lift nextRequestId
+  sent <- lift $ send $ IBRequest $ RequestMarketData sv rid contract genticktypes snapshot
+  bool nothing (just rid) sent
+
+cancelMarketData :: Int -> IB Bool
+cancelMarketData = send . IBRequest . CancelMarketData 
+
+placeOrder :: IBContract -> IBOrder -> IB (Maybe Int)
+placeOrder contract order = runMaybeT $ do
+  sv <- MaybeT serverVersion
+  oid <- MaybeT nextOrderId
+  sent <- lift $ send $ IBRequest $ PlaceOrder sv oid contract order
+  bool nothing (just oid) sent
+
+cancelOrder :: Int -> IB Bool
+cancelOrder = send . IBRequest . CancelOrder
+
+requestOpenOrders :: IB Bool
+requestOpenOrders = send $ IBRequest RequestOpenOrders
+
+requestAccountData :: Bool -> String -> IB Bool
+requestAccountData subscribe accountcode = fmap hushMaybe $ runMaybeT $ do
+  sv <- MaybeT serverVersion
+  sent <- lift $ send $ IBRequest $ RequestAccountData sv subscribe accountcode
+  bool nothing (just ()) sent
+
+requestExecutions :: Int -> IBExecutionFilter -> IB Bool
+requestExecutions requestid = send . IBRequest . RequestExecutions requestid
+
 -----------------------------------------------------------------------------
 
 testIB :: IO ()

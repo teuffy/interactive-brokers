@@ -24,26 +24,28 @@ import           MVC.Socket
 model :: Model () ServiceOut (Either ServiceIn String)
 model = asPipe $ do
   
-  yield $ Left $ ServiceCommand ServiceReportStatus
+  sendEvent $ ServiceCommand ServiceReportStatus
   
-  yield $ Left $ ConnectionCommand $ Connect 0
+  sendEvent $ ConnectionCommand $ Connect 0
   
   onCondition (== ServiceStatus ServiceActive) $
-    yield $ Left $ Send "hello1\n"
+    sendEvent $ Send "hello1\n"
   
   onCondition (streamContains "server: hello1\n") $
-    yield $ Left $ ConnectionCommand Disconnect
+    sendEvent $ ConnectionCommand Disconnect
   
   onCondition (== ServiceStatus ServicePending) $
-    yield $ Left $ ConnectionCommand $ Connect 0
+    sendEvent $ ConnectionCommand $ Connect 0
   
   onCondition (== ServiceStatus ServiceActive) $
-    yield $ Left $ Send "hello2\n"
+    sendEvent $ Send "hello2\n"
   
   for cat logEvent
   
   where
-    
+  
+  sendEvent = yield . Left
+
   logEvent = yield . Right . show
 
   streamContains bs = \case 

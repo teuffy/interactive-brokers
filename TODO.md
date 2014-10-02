@@ -9,7 +9,6 @@ To Do List
 
 ### Defects
 
-* Requests-Simple: thread blocked indefinitely in an STM transaction
 * Build on GHC 7.8.x
 * Test pico issue on GHC 7.8.x
 
@@ -19,7 +18,6 @@ To Do List
 * Add a connection timeout (secs) config setting?
 * Simple interface (connection object)?
 * Remaining IB requests and responses (summarise here from list in Enum.hs)
-* Logging (hslogger?)
 * Contract database, automated update
 * SSL connection to IB TWS
 
@@ -32,7 +30,6 @@ To Do List
 * Refactor Edge to ListT (use state for partial parse)
 * Async/exception handling
 * Config read only (vs in 'mutable' state at present)?
-* Some data unncecessary in IB connection state (e.g. accounts, next valid id, etc?) 
 * BASE currency (in AccountValue msg) solution
 
 ### Test suite 
@@ -51,17 +48,13 @@ To Do List
 ### Connection
 
 * Add remaining conditions to ensure state machine is robust (e.g. can't process start unless pending) and invalid commands/condtions are logged
-* ServiceCommand: implement pause, resume
-* Socket service status messages: implement handlers
-* ibsNextRequestId: add? if so, implment update logic
 * Check client server version <= server version
 * Error handler for error responses from IB (see IB API docs for error codes)
 * Error response messages - see EClientSocket.java e.g. not connected, cannot send (also cannot create which currently only logs a message)
 
 ### Monadic interface
 
-* Disconnect
-* Simplify handling of request/order id's and server version in request messages
+* Add remaining request functions
 
 ### Builder
 
@@ -79,7 +72,7 @@ To Do List
 
 ### Requests
 
-* Create message functions to return Either with string/typed failure reason? Or use error "<reason>"?
+* Remove unnecessary server version parameters and attributes (also Data)
 * Use typing to prevent some of the error conditions (e.g. bar size)
 * Lazy vs strict bytestring (github issue #2)
 * Remove req historical data option to specify date format - just use one of the two options internally
