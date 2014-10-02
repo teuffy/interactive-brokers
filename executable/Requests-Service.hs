@@ -140,7 +140,7 @@ processRequests svc@IBEventHandler{..} = do
      , rq $ RequestIds sv 3
      , rq $ RequestManagedAccounts sv
      , rq $ CancelAccountSummary sv 5
-     , rq $ RequestExecutions sv 6 newIBExecutionFilter
+     , rq $ RequestExecutions 6 newIBExecutionFilter
      , rq $ RequestMarketDataType sv RealTime
      , rq $ CancelPositions sv
      --, req $ RequestGlobalCancel sv
