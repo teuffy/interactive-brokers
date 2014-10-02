@@ -136,19 +136,22 @@ connectSocket SocketParams{..} = try $ connectSock _spHostName _spServiceName
 
 -----------------------------------------------------------------------------
 
-connectionReader :: Buffer ByteString -> Connection -> Int -> Output Bool -> Managed (Controller ByteString)
-connectionReader buffer conn nbytes status = managed $ \k -> do
+connectionReader :: Bool -> Buffer ByteString -> Connection -> Int -> Output Bool -> Managed (Controller ByteString)
+connectionReader dbg buffer conn nbytes status = managed $ \k -> do
   
   (vOut, cOut, sOut) <- spawn' buffer
   
   let 
+
+    debug :: String -> IO ()
+    debug = when dbg . putStrLn
 
     sealAll :: IO ()
     sealAll = atomically sOut
 
     streamErrorHandler :: SomeException -> IO ()
     streamErrorHandler e =
-      putStrLn $ "Debug: connectionReader stream error: " ++ show e
+      debug $ "Debug: connectionReader stream error: " ++ show e
       --throwIO e
 
     stream :: Socket -> IO ()
@@ -158,7 +161,7 @@ connectionReader buffer conn nbytes status = managed $ \k -> do
 
     ioErrorHandler :: SomeException -> IO ()
     ioErrorHandler e = do
-      putStrLn $ "Debug: connectionReader error: " ++ show e
+      debug $ "Debug: connectionReader error: " ++ show e
       sealAll
       --throwIO e
 
@@ -170,7 +173,7 @@ connectionReader buffer conn nbytes status = managed $ \k -> do
 
     stop :: Async () -> IO ()
     stop a = do
-      putStrLn "Debug: connectionReader stop"
+      debug "Debug: connectionReader stop"
       cancel a
       sealAll
 
@@ -252,7 +255,7 @@ socketService SocketConfiguration{..} = do
 
   (vConnection, cConnection, sConnection) <- managed $ \k -> spawn' Unbounded >>= k
 
-  cSocketIn <- connectionReader Single conn 4096 vConnection
+  cSocketIn <- connectionReader _scDebug Single conn 4096 vConnection
 
   managed $ \k -> do
 
@@ -292,7 +295,7 @@ socketService SocketConfiguration{..} = do
         --or sync exception
         closeConnection conn
         sealAll
-        throwIO e  
+        --throwIO e
       
       io :: IO ()
       io = do
