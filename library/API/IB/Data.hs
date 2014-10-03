@@ -100,16 +100,11 @@ data IBRequest =
     , _reqRequestId :: Int 
     , _reqContract :: IBContract
     }
-  | RequestAutoOpenOrders 
-    { _reqServerVersion :: Int
-    , _reqAutoBind :: Bool
+  | RequestAutoOpenOrders
+    { _reqAutoBind :: Bool
     }
-  | RequestAllOpenOrders 
-    { _reqServerVersion :: Int
-    }
-  | RequestManagedAccounts 
-    { _reqServerVersion :: Int
-    }
+  | RequestAllOpenOrders
+  | RequestManagedAccounts
   | RequestHistoricalData 
     { _reqServerVersion :: Int
     , _reqTickerId :: Int 
@@ -122,12 +117,9 @@ data IBRequest =
     , _reqFormatDate :: IBFormatDate
     }
   | CancelHistoricalData 
-    { _reqServerVersion :: Int
-    , _reqTickerId :: Int
+    { _reqTickerId :: Int
     }
   | RequestCurrentTime 
-    { _reqServerVersion :: Int
-    }
   | RequestRealTimeBars 
     { _reqServerVersion :: Int
     , _reqTickerId :: Int 
@@ -137,19 +129,13 @@ data IBRequest =
     , _reqRegularTradingHours :: Bool
     }
   | CancelRealTimeBars 
-    { _reqServerVersion :: Int 
-    , _reqTickerId :: Int
+    { _reqTickerId :: Int
     }
   | RequestGlobalCancel 
-    { _reqServerVersion :: Int
-    }
   | RequestMarketDataType 
-    { _reqServerVersion :: Int
-    , _reqMarketDataType :: IBMarketDataType
+    { _reqMarketDataType :: IBMarketDataType
     }
   | RequestPositions 
-    { _reqServerVersion :: Int
-    }
   | RequestAccountSummary 
     { _reqServerVersion :: Int
     , _reqRequestId :: Int 
@@ -157,7 +143,7 @@ data IBRequest =
     , _reqTags :: IBTags
     }
   | CancelAccountSummary 
-    { _reqServerVersion :: Int 
+    { _reqServerVersion :: Int
     , _reqRequestId :: Int
     }
   | CancelPositions 

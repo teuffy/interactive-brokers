@@ -121,26 +121,26 @@ processRequests svc@IBEventHandler{..} = do
     oid <- _ibNextOrderId
     return
      [ 
-       rq $ RequestCurrentTime sv
+       rq   RequestCurrentTime
      , rq $ RequestContractData sv 1 conESZ4
      , rq $ RequestMarketData sv 2 conESZ4 [] False
      , rq $ RequestRealTimeBars sv 3 conESZ4 5 BarBasisTrades False
      , rq $ RequestHistoricalData sv 4 conESZ4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
      , rq $ RequestIds 3
-     --, rq $ PlaceOrder sv oid conESZ4 (marketOrder oid _ibClientId Buy 1)
+     , rq $ PlaceOrder sv oid conESZ4 (marketOrder oid _ibClientId Buy 1)
      --, rq $ PlaceOrder sv boid conESZ4 (marketOrder oid _ibClientId Sell 1)
      --, rq $ CancelOrder oid
      , rq   RequestOpenOrders
-     , rq $ RequestAllOpenOrders sv
-     , rq $ RequestAutoOpenOrders sv False
-     , rq $ RequestManagedAccounts sv
+     , rq   RequestAllOpenOrders
+     , rq $ RequestAutoOpenOrders False
+     , rq   RequestManagedAccounts
      , rq $ RequestAccountData sv True (head _ibManagedAccounts)
      , rq $ RequestAccountSummary sv 5 All [NetLiquidation]
-     , rq $ RequestPositions sv
-     , rq $ RequestManagedAccounts sv
+     , rq   RequestPositions
+     , rq   RequestManagedAccounts
      , rq $ CancelAccountSummary sv 5
      , rq $ RequestExecutions 6 newIBExecutionFilter
-     , rq $ RequestMarketDataType sv RealTime
+     , rq $ RequestMarketDataType RealTime
      , rq $ CancelPositions sv
      --, req $ RequestGlobalCancel sv
      ]

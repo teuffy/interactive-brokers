@@ -73,17 +73,17 @@ createMsg request = case request of
   (RequestExecutions rid ef) -> createRequestExecutionsMsg rid ef 
   (RequestIds n) -> createRequestIdsMsg n
   (RequestContractData sv rid c) -> createRequestContractDataMsg sv rid c
-  (RequestAutoOpenOrders sv ab) -> createRequestAutoOpenOrdersMsg sv ab
-  (RequestAllOpenOrders sv) -> createRequestAllOpenOrdersMsg sv
-  (RequestManagedAccounts sv) -> createRequestManagedAccountsMsg sv
+  (RequestAutoOpenOrders ab) -> createRequestAutoOpenOrdersMsg ab
+  RequestAllOpenOrders -> createRequestAllOpenOrdersMsg
+  RequestManagedAccounts -> createRequestManagedAccountsMsg
   (RequestHistoricalData sv tid c dt dur bs bb rth fd) -> createRequestHistoricalDataMsg sv tid c dt dur bs bb rth fd
-  (CancelHistoricalData sv tid) -> createCancelHistoricalDataMsg sv tid
-  (RequestCurrentTime sv) -> createRequestCurrentTimeMsg sv
+  (CancelHistoricalData tid) -> createCancelHistoricalDataMsg tid
+  RequestCurrentTime -> createRequestCurrentTimeMsg
   (RequestRealTimeBars sv tid c bs bb rth) -> createRequestRealTimeBarsMsg sv tid c bs bb rth
-  (CancelRealTimeBars sv tid) -> createCancelRealTimeBarsMsg sv tid
-  (RequestGlobalCancel sv) -> createRequestGlobalCancelMsg sv
-  (RequestMarketDataType sv mdt) -> createRequestMarketDataTypeMsg sv mdt
-  (RequestPositions sv) -> createRequestPositionsMsg sv
+  (CancelRealTimeBars tid) -> createCancelRealTimeBarsMsg tid
+  RequestGlobalCancel -> createRequestGlobalCancelMsg
+  (RequestMarketDataType mdt) -> createRequestMarketDataTypeMsg mdt
+  RequestPositions -> createRequestPositionsMsg
   (RequestAccountSummary sv rid g tl) -> createRequestAccountSummaryMsg sv rid g tl
   (CancelAccountSummary sv rid) -> createCancelAccountSummaryMsg sv rid
   (CancelPositions sv) -> createCancelPositionsMsg sv
@@ -363,19 +363,19 @@ createRequestContractDataMsg sversion requestid IBContract{..} =
 
 -- -----------------------------------------------------------------------------
 
-createRequestAutoOpenOrdersMsg :: Int -> Bool -> Msg
-createRequestAutoOpenOrdersMsg _ autobind = 
+createRequestAutoOpenOrdersMsg :: Bool -> Msg
+createRequestAutoOpenOrdersMsg autobind = 
   return $ ibMsg 1 ReqAutoOpenOrdersT [intDec $ boolBinary autobind]
 
 -- -----------------------------------------------------------------------------
 
-createRequestAllOpenOrdersMsg :: Int -> Msg
-createRequestAllOpenOrdersMsg _ = return $ ibMsg 1 ReqAllOpenOrdersT []
+createRequestAllOpenOrdersMsg :: Msg
+createRequestAllOpenOrdersMsg = return $ ibMsg 1 ReqAllOpenOrdersT []
 
 -- -----------------------------------------------------------------------------
 
-createRequestManagedAccountsMsg :: Int -> Msg
-createRequestManagedAccountsMsg _ = return $ ibMsg 1 ReqManagedAccountsT []
+createRequestManagedAccountsMsg :: Msg
+createRequestManagedAccountsMsg = return $ ibMsg 1 ReqManagedAccountsT []
 
 -- -----------------------------------------------------------------------------
 
@@ -412,14 +412,14 @@ createRequestHistoricalDataMsg sversion tickerid IBContract{..} enddatetime dura
 
 -- -----------------------------------------------------------------------------
 
-createCancelHistoricalDataMsg :: Int -> Int -> Msg
-createCancelHistoricalDataMsg _ tickerid = 
+createCancelHistoricalDataMsg :: Int -> Msg
+createCancelHistoricalDataMsg tickerid = 
   return $ ibMsg 1  CancelHistoricalDataT [intDec tickerid]
 
 -- -----------------------------------------------------------------------------
 
-createRequestCurrentTimeMsg :: Int -> Msg
-createRequestCurrentTimeMsg _ = return $ ibMsg 1 ReqCurrentTimeT []
+createRequestCurrentTimeMsg :: Msg
+createRequestCurrentTimeMsg = return $ ibMsg 1 ReqCurrentTimeT []
 
 -- -----------------------------------------------------------------------------
 
@@ -453,24 +453,24 @@ createRequestRealTimeBarsMsg sversion tickerid IBContract{..} barsize barbasis u
 
 -- -----------------------------------------------------------------------------
 
-createCancelRealTimeBarsMsg :: Int -> Int -> Msg
-createCancelRealTimeBarsMsg _ tickerid = return $ ibMsg 1 CancelRealTimeBarsT [intDec tickerid]
+createCancelRealTimeBarsMsg :: Int -> Msg
+createCancelRealTimeBarsMsg tickerid = return $ ibMsg 1 CancelRealTimeBarsT [intDec tickerid]
 
 -- -----------------------------------------------------------------------------
 
-createRequestGlobalCancelMsg :: Int -> Msg
-createRequestGlobalCancelMsg _ = return $ ibMsg 1 ReqGlobalCancelT []
+createRequestGlobalCancelMsg :: Msg
+createRequestGlobalCancelMsg = return $ ibMsg 1 ReqGlobalCancelT []
 
 -- -----------------------------------------------------------------------------
 
-createRequestMarketDataTypeMsg :: Int -> IBMarketDataType -> Msg
-createRequestMarketDataTypeMsg _ marketdatatype = 
+createRequestMarketDataTypeMsg :: IBMarketDataType -> Msg
+createRequestMarketDataTypeMsg marketdatatype = 
   return $ ibMsg 1 ReqMarketDataTypeT [bEncode marketdatatype]
 
 -- -----------------------------------------------------------------------------
 
-createRequestPositionsMsg :: Int -> Msg
-createRequestPositionsMsg _ = return $ ibMsg 1 ReqPositionsT []
+createRequestPositionsMsg :: Msg
+createRequestPositionsMsg = return $ ibMsg 1 ReqPositionsT []
 
 -- -----------------------------------------------------------------------------
 
@@ -493,7 +493,7 @@ createCancelAccountSummaryMsg sversion requestid
 -- -----------------------------------------------------------------------------
 
 createCancelPositionsMsg :: Int -> Msg
-createCancelPositionsMsg sversion 
+createCancelPositionsMsg sversion
   | sversion < minServerVersionAccountSummary = Left InvalidServerVersion
   | otherwise = return $ ibMsg 1 CancelPositionsT []
 

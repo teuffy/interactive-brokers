@@ -26,6 +26,20 @@ module API.IB.Monadic
   , requestExecutions
   , requestIds
   , requestContractData
+  , requestAutoOpenOrders
+  , requestAllOpenOrders
+  , requestManagedAccounts
+  , requestHistoricalData
+  , cancelHistoricalData
+  , requestCurrentTime
+  , requestRealTimeBars
+  , cancelRealTimeBars
+  , requestGlobalCancel
+  , requestMarketDataType
+  , requestPositions
+  , requestAccountSummary
+  , cancelAccountSummary
+  , cancelPositions
   , testIB
   ) where
 
@@ -41,6 +55,7 @@ import qualified Control.Monad.Trans.Reader       as R
 import           Control.Monad.Trans.State.Strict (StateT)
 import qualified Control.Monad.Trans.State.Strict as S
 import           Data.Default
+import           Data.Time
 import           MVC                              hiding (loop,recv,send)
 import qualified MVC                              as M (recv,send)
 import           MVC.Service
@@ -201,6 +216,66 @@ requestContractData contract = runMaybeT $ do
   rid <- lift nextRequestId
   sent <- lift $ send $ IBRequest $ RequestContractData sv rid contract
   bool nothing (just rid) sent
+
+requestAutoOpenOrders :: Bool -> IB Bool
+requestAutoOpenOrders = send . IBRequest . RequestAutoOpenOrders
+
+requestAllOpenOrders :: IB Bool
+requestAllOpenOrders = send $ IBRequest RequestAllOpenOrders
+
+requestManagedAccounts :: IB Bool
+requestManagedAccounts = send $ IBRequest RequestManagedAccounts
+
+requestHistoricalData :: IBContract -> LocalTime -> IBDuration -> Int -> IBBarBasis -> Bool -> IBFormatDate -> IB (Maybe Int)
+requestHistoricalData contract enddatetime duration barsize barbasis userth formatdate = runMaybeT $ do
+  sv <- MaybeT serverVersion
+  rid <- lift nextRequestId
+  sent <- lift $ send $ IBRequest $ RequestHistoricalData sv rid contract enddatetime duration barsize barbasis userth formatdate
+  bool nothing (just rid) sent
+
+cancelHistoricalData :: Int -> IB Bool
+cancelHistoricalData = send . IBRequest . CancelHistoricalData
+
+requestCurrentTime :: IB Bool
+requestCurrentTime = send $ IBRequest RequestCurrentTime
+
+requestRealTimeBars :: IBContract -> Int -> IBBarBasis -> Bool -> IB (Maybe Int)
+requestRealTimeBars contract barsize barbasis userth = runMaybeT $ do
+  sv <- MaybeT serverVersion
+  rid <- lift nextRequestId
+  sent <- lift $ send $ IBRequest $ RequestRealTimeBars sv rid contract barsize barbasis userth
+  bool nothing (just rid) sent
+
+cancelRealTimeBars :: Int -> IB Bool
+cancelRealTimeBars = send . IBRequest . CancelRealTimeBars
+
+requestGlobalCancel :: IB Bool
+requestGlobalCancel = send $ IBRequest RequestGlobalCancel
+
+requestMarketDataType :: IBMarketDataType -> IB Bool
+requestMarketDataType = send . IBRequest . RequestMarketDataType
+
+requestPositions :: IB Bool
+requestPositions = send $ IBRequest RequestPositions
+
+requestAccountSummary :: IBGroup -> [IBTag] -> IB (Maybe Int)
+requestAccountSummary grp tags = runMaybeT $ do
+  sv <- MaybeT serverVersion
+  rid <- lift nextRequestId
+  sent <- lift $ send $ IBRequest $ RequestAccountSummary sv rid grp tags
+  bool nothing (just rid) sent
+
+cancelAccountSummary :: Int -> IB Bool
+cancelAccountSummary reqid = fmap hushMaybe $ runMaybeT $ do
+  sv <- MaybeT serverVersion
+  sent <- lift $ send $ IBRequest $ CancelAccountSummary sv reqid
+  bool nothing (just ()) sent
+
+cancelPositions :: IB Bool
+cancelPositions = fmap hushMaybe $ runMaybeT $ do
+  sv <- MaybeT serverVersion
+  sent <- lift $ send $ IBRequest $ CancelPositions sv
+  bool nothing (just ()) sent
 
 -----------------------------------------------------------------------------
 

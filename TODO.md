@@ -54,7 +54,7 @@ To Do List
 
 ### Monadic interface
 
-* Add remaining request functions
+* Reduce duplication in requests code (getting sv, rid, etc.)
 
 ### Builder
 
@@ -76,7 +76,7 @@ To Do List
 
 ### Requests
 
-* Remove unnecessary server version parameters and attributes (also Data)
+* Investigate cancel positions request - what does it do (e.g. close positions, cancel request positions msg, etc.)? 
 * Use typing to prevent some of the error conditions (e.g. bar size)
 * Lazy vs strict bytestring (github issue #2)
 * Remove req historical data option to specify date format - just use one of the two options internally
