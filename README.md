@@ -78,13 +78,14 @@ Tested on GHC 7.6.3:
     cd interactive-brokers
     cabal sandbox init
     cabal sandbox add-source ../mvc-service
-    cabal install --only-dependencies -p
-    cabal configure -p
+    cabal install --only-dependencies
+    cabal configure
     cabal build
     cabal install
     
 With IB TWS running, start the example application which issues a series of requests to the IB API and sends the responses to stdout:
 
+    cabal run shell
     cabal run requests-simple
     cabal run requests-service
 
