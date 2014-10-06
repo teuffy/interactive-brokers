@@ -41,7 +41,7 @@ To Do List
 ### Sample apps
 
 * Requests-Simple: rename, add all requests
-* Requests-Service: rename, change to be a basic algo trader (e.g. moving average crossover), separate project?
+* Requests-Service: rename, change to be a basic algo trader (e.g. moving average crossover), separate project?, extend IB library with a set of helpers for requests (as in Monadic.hs) to be used with event handler approach
 * Shell: IB shell (build into API?) - convert to IB monad, add full request support, single command invocation
 * Capture (new): historical/streaming market data to file/db
 
@@ -55,6 +55,8 @@ To Do List
 ### Monadic interface
 
 * Reduce duplication in requests code (getting sv, rid, etc.)
+* async function to fork an IB thread sharing the req/resp mailboxes and updating the same state?
+* More IB instances (e.g. MonadCatch)
 
 ### Builder
 

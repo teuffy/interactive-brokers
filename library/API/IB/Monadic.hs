@@ -5,18 +5,21 @@
 
 module API.IB.Monadic 
 
-  ( IB
+  ( -- * IB monad
+    IB
   , runIB
+    -- * IB state
   , status
   , accounts
   , connection
   , nextOrderId
   , nextRequestId
-  , send
-  , recv
+    -- * IB connection
   , connect
   , disconnect
   , stop
+    -- * IB requests
+  , send
   , requestMarketData
   , cancelMarketData
   , placeOrder
@@ -40,7 +43,8 @@ module API.IB.Monadic
   , requestAccountSummary
   , cancelAccountSummary
   , cancelPositions
-  , testIB
+    -- * IB responses
+  , recv
   ) where
 
 import           Control.Applicative
@@ -89,13 +93,24 @@ instance Default IBState where
 
 -----------------------------------------------------------------------------
 
-newtype IB r = 
-  IB { unIB :: ReaderT IBService (StateT IBState IO) r}
-  deriving (Functor,Applicative,Monad,MonadException,MonadIO,MonadReader IBService,MonadState IBState)
+newtype IB r = IB 
+  { unIB :: ReaderT IBService (StateT IBState IO) r
+  }
+  deriving 
+  ( Functor
+  , Applicative
+  , Monad
+  , MonadException
+  , MonadIO
+  , MonadReader IBService
+  , MonadState IBState
+  )
 
 runIB :: IBConfiguration -> IB a -> IO a
 runIB cfg ib = withIB (cfg & cfgAutoStart .~ False) $ \ibs -> 
-  flip S.evalStateT def $ flip R.runReaderT ibs $ unIB ib
+  flip S.evalStateT def $
+    flip R.runReaderT ibs $
+      unIB ib
 
 -----------------------------------------------------------------------------
 
@@ -277,7 +292,3 @@ cancelPositions = fmap hushMaybe $ runMaybeT $ do
   sent <- lift $ send $ IBRequest $ CancelPositions sv
   bool nothing (just ()) sent
 
------------------------------------------------------------------------------
-
-testIB :: IO ()
-testIB = runIB def $ connect >> forever (recv >>= liftIO . print)
