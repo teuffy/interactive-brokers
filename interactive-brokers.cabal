@@ -23,7 +23,6 @@ Library
   ghc-options:            -Wall -O2 -threaded -fprof-auto -rtsopts
   default-language:       Haskell2010
   exposed-modules:        API.IB
-                          MVC.Socket
   other-modules:          API.IB.Builder
                           API.IB.Constant
                           API.IB.Connection
@@ -55,7 +54,6 @@ Library
                           pipes >= 4.1.0,
                           pipes-concurrency >= 2.0.2,
                           pipes-network >= 0.6.2,
-                          -- pipes-safe >= 2.0.2 && < 2.1,
                           scientific,
                           split >= 0.2.2,
                           stm >= 2.4.2,
@@ -156,31 +154,6 @@ Executable shell
                           time >= 1.4.0.1,
                           transformers >= 0.3.0.0,
                           tz >= 0.0.0.5
-
-Executable sockettest
-  main-is:                SocketTest.hs
-  default-language:       Haskell2010
-  ghc-options:            -Wall -O2 -threaded -fprof-auto -rtsopts
-  hs-source-dirs:         executable
-  build-depends:          base >= 4 && < 5,
-                          async >= 2.0.1.4,
-                          bytestring >= 0.10.0.2,
-                          containers >= 0.5.0.0,
-                          data-default >= 0.5.3,
-                          hslogger >= 1.2.4,
-                          interactive-brokers >= 0.1,
-                          lens >= 4.0,
-                          mtl >= 2.1.2,
-                          mvc >= 1.0,
-                          mvc-service >= 0.1,
-                          network >= 2.4.1.2,
-                          network-simple >= 0.3.0,
-                          old-locale >= 1.0.0.5,
-                          pipes >= 4.1.0,
-                          pipes-concurrency >= 2.0.2,
-                          pipes-network >= 0.6.2,
-                          stm >= 2.4.2,
-                          transformers >= 0.3.0.0
 
 test-suite tasty
   main-is:                Tasty.hs
