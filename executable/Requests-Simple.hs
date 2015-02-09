@@ -21,8 +21,8 @@ import           API.IB
 -- -----------------------------------------------------------------------------
 -- Reference data
 
-conESZ4 :: IBContract
-conESZ4 = future "ES" "ESZ4" (fromGregorian 2014 12 19) GLOBEX "USD" 
+conES :: IBContract
+conES = future "ES" "ESZ5" (fromGregorian 2015 12 18) GLOBEX "USD" 
 
 -- -----------------------------------------------------------------------------
 -- Requests
@@ -47,7 +47,7 @@ requests = do
   
   where
   
-  reqMktData = requestMarketData conESZ4 [] False
+  reqMktData = requestMarketData conES [] False
   displayStatus = status >>= display . show
   recvP n = replicateM_ n $ recv >>= display . show
   delay t = liftIO $ threadDelay (t*1000000)

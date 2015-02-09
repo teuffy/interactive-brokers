@@ -15,10 +15,10 @@ import           API.IB
 -----------------------------------------------------------------------------
 
 conES :: IBContract
-conES = future "ES" "ESZ4" (fromGregorian 2014 12 19) GLOBEX "USD" 
+conES = future "ES" "ESZ5" (fromGregorian 2015 12 18) GLOBEX "USD" 
 
 conGC :: IBContract
-conGC = future "GC" "GCZ4" (fromGregorian 2014 12 29) NYMEX "USD" 
+conGC = future "GC" "GCZ5" (fromGregorian 2015 12 29) NYMEX "USD" 
 
 -----------------------------------------------------------------------------
 

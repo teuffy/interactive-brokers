@@ -38,10 +38,10 @@ import           API.IB
 -- Reference data
 
 refDate :: LocalTime 
-refDate = LocalTime (fromGregorian 2014 09 18) (TimeOfDay 0 0 (toEnum 0))
+refDate = LocalTime (fromGregorian 2015 02 06) (TimeOfDay 0 0 (toEnum 0))
 
-conESZ4 :: IBContract
-conESZ4 = future "ES" "ESZ4" (fromGregorian 2014 12 19) GLOBEX "USD" 
+conES :: IBContract
+conES = future "ES" "ESZ5" (fromGregorian 2015 12 18) GLOBEX "USD" 
 
 -- -----------------------------------------------------------------------------
 -- Test strategy
@@ -122,13 +122,13 @@ processRequests svc@IBEventHandler{..} = do
     return
      [ 
        rq   RequestCurrentTime
-     , rq $ RequestContractData sv 1 conESZ4
-     , rq $ RequestMarketData sv 2 conESZ4 [] False
-     , rq $ RequestRealTimeBars sv 3 conESZ4 5 BarBasisTrades False
-     , rq $ RequestHistoricalData sv 4 conESZ4 refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
+     , rq $ RequestContractData sv 1 conES
+     , rq $ RequestMarketData sv 2 conES [] False
+     , rq $ RequestRealTimeBars sv 3 conES 5 BarBasisTrades False
+     , rq $ RequestHistoricalData sv 4 conES refDate (IBDuration 1 D) 3600 BarBasisTrades False IBFDDateTime
      , rq $ RequestIds 3
-     , rq $ PlaceOrder sv oid conESZ4 (marketOrder oid _ibClientId Buy 1)
-     --, rq $ PlaceOrder sv boid conESZ4 (marketOrder oid _ibClientId Sell 1)
+     , rq $ PlaceOrder sv oid conES (marketOrder oid _ibClientId Buy 1)
+     --, rq $ PlaceOrder sv boid conES (marketOrder oid _ibClientId Sell 1)
      --, rq $ CancelOrder oid
      , rq   RequestOpenOrders
      , rq   RequestAllOpenOrders
