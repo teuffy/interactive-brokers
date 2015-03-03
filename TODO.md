@@ -9,8 +9,8 @@ To Do List
 
 ### Defects
 
-* Build on GHC 7.8.x
-* Test pico issue on GHC 7.8.x
+* Pico issue (see email): test on GHC 7.8.x - should be resolved
+* Thread blocked indefinitely in an STM transaction: see [pipes-concurrency issue](githhttps://github.com/Gabriel439/Haskell-Pipes-Concurrency-Library/issues/29)
 
 ### New features
 

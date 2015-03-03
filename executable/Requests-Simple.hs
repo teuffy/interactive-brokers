@@ -22,7 +22,10 @@ import           API.IB
 -- Reference data
 
 conES :: IBContract
-conES = future "ES" "ESZ5" (fromGregorian 2015 12 18) GLOBEX "USD" 
+conES = future "ES" "ESH5" (Just $ fromGregorian 2015 03 20) GLOBEX "USD"
+
+conES' :: IBContract
+conES' = future "ES" "" Nothing GLOBEX "USD" 
 
 -- -----------------------------------------------------------------------------
 -- Requests
@@ -33,20 +36,23 @@ requests = do
   display "Starting"
   displayStatus
   connect
+  reqConData
   reqMktData
-  recvP 15
+  recvP 50
   displayStatus
   disconnect
   delay 5
   connect
   reqMktData
-  recvP 10
+  recvP 30
+  delay 10
   stop
   displayStatus
   display "Finished"
   
   where
   
+  reqConData = requestContractData conES'
   reqMktData = requestMarketData conES [] False
   displayStatus = status >>= display . show
   recvP n = replicateM_ n $ recv >>= display . show

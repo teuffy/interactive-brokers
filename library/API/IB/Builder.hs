@@ -9,11 +9,11 @@ import API.IB.Enum
 -- --------------------------------------------------------------------------
 -- Contracts
 
-future :: String -> String -> Day -> IBExchange -> Currency -> IBContract
+future :: String -> String -> Maybe Day -> IBExchange -> Currency -> IBContract
 future symbol_family symbol expiry_dt exchange currency = newIBContract 
   { _conSymbol = symbol_family
   , _conSecType = IBFuture
-  , _conExpiry = Just expiry_dt
+  , _conExpiry = expiry_dt
   , _conExchange = exchange
   , _conCurrency = currency
   , _conLocalSymbol = symbol

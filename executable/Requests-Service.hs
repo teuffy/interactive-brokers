@@ -41,7 +41,7 @@ refDate :: LocalTime
 refDate = LocalTime (fromGregorian 2015 02 06) (TimeOfDay 0 0 (toEnum 0))
 
 conES :: IBContract
-conES = future "ES" "ESZ5" (fromGregorian 2015 12 18) GLOBEX "USD" 
+conES = future "ES" "ESZ5" (Just $ fromGregorian 2015 12 18) GLOBEX "USD" 
 
 -- -----------------------------------------------------------------------------
 -- Test strategy
