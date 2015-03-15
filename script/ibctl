@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Configuration
+
+TWSUSERID=
+TWSPASSWORD=
+
+IBCDIR=/Users/Chris/IBController/
+IBCINI=$IBCDIR/IBController.ini
+TWSDIR=/Users/Chris/IBJts
+
+# Parse optional argument
+
+IBCTWS=ibcontroller.IBController
+IBCGW=ibcontroller.IBGatewayController
+
+if [ -z $1 ]
+then
+  IBC=$IBCTWS
+else 
+  case $1 in
+    "tws") IBC=$IBCTWS;;
+    "gw")  IBC=$IBCGW;;
+    *)     echo "Invalid argument: use tws (default) or gw"
+           exit 1
+  esac
+fi
+
+# Launch app
+
+TWSCP=jts.jar:total.jar
+JAVAOPTS="-Xmx512M -XX:MaxPermSize=128M"
+
+pushd $TWSDIR
+java -cp  $TWSCP:$IBCDIR/IBController.jar $JAVAOPTS $IBC $IBCINI $TWSUSERID $TWSPASSWORD
+popd

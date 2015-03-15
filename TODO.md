@@ -14,7 +14,8 @@ To Do List
 
 ### New features
 
-* IB Controller launcher (TWS and Gateway). Test IB Gateway app
+* Test IB Gateway app
+* IB Controller launcher (TWS and Gateway).
 * Add a connection timeout (secs) config setting?
 * Simple interface (connection object)?
 * Remaining IB requests and responses (summarise here from list in Enum.hs)
@@ -55,7 +56,7 @@ To Do List
 ### Monadic interface
 
 * Reduce duplication in requests code (getting sv, rid, etc.)
-* async function to fork an IB thread sharing the req/resp mailboxes and updating the same state?
+* Async function to fork an IB thread sharing the req/resp mailboxes and updating the same state?
 * More IB instances (e.g. MonadCatch)
 
 ### Builder
@@ -91,40 +92,14 @@ To Do List
 * TickPrice: parse also generates a TickSize but latter seems to also stream separately - confirm/remove duplication? Have commented out TickSize generation from TickPrice parser.
 * Add error message to fail "" (and empty?) statements
 
-### Socket service
-
-* Move to another library (e.g mvc-service)
-* Complete model (e.g. checking and updating state)
-* Tidy up Connection code, consistent use of STM vs IO
-* Streamline verbose code e.g. atomically
-* Secure SSL option
-* Command to change socket host/port
-* Tests and benchmarks
-
-### MVC Service
+### Related package: mvc-service
 
 * Lenses for Service
 * Service resume command needed (vs reuse service start in paused status)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+* Socket service
+  * Complete model (e.g. checking and updating state)
+  * Tidy up Connection code, consistent use of STM vs IO
+  * Streamline verbose code e.g. atomically
+  * Secure SSL option
+  * Command to change socket host/port
+  * Tests and benchmarks

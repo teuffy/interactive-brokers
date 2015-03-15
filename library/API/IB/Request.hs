@@ -414,7 +414,7 @@ createRequestHistoricalDataMsg sversion tickerid IBContract{..} enddatetime dura
 
 createCancelHistoricalDataMsg :: Int -> Msg
 createCancelHistoricalDataMsg tickerid = 
-  return $ ibMsg 1  CancelHistoricalDataT [intDec tickerid]
+  return $ ibMsg 1 CancelHistoricalDataT [intDec tickerid]
 
 -- -----------------------------------------------------------------------------
 

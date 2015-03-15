@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# Configuration
+
+TWSDIR=/Users/Chris/IBJts
+
+# Parse optional argument
+
+IBTWS="java -cp jts.jar:total.jar -Xmx512M -XX:MaxPermSize=128M jclient.LoginFrame ."
+IBGW="java -cp jts.jar:total.jar -Dsun.java2d.noddraw=true -Xmx512M ibgateway.GWClient ."
+IBTC="java -jar jtsclient.jar"
+
+if [ -z $1 ]
+then
+  IBC=$IBTWS
+else 
+  case $1 in
+    "tws") IBC=$IBTWS;;
+    "gw")  IBC=$IBGW;;
+    "tc")  IBC=$IBTC;;
+    *)     echo "Invalid argument: use tws (default), gw or tc"
+           exit 1
+  esac
+fi
+
+# Launch app
+
+pushd $TWSDIR
+eval $IBC
+popd
