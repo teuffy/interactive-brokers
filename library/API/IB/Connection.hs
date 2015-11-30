@@ -104,7 +104,7 @@ instance Default IBConfiguration where
     { _cfgAutoStart = True
     , _cfgClientId = 23
     , _cfgConnRetryDelaySecs = 10
-    , _cfgSocketParams = K.SocketParams "192.168.1.106" "7496" -- "7496"
+    , _cfgSocketParams = K.SocketParams "192.168.120" "7496" -- "7496"
     , _cfgTimeZones = ibTimeZones
     } 
 
