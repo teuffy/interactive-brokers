@@ -167,6 +167,8 @@ Executable shell
                           transformers >= 0.3.0.0,
                           tz >= 0.0.0.5
 
+
+
 test-suite tasty
   main-is:                Tasty.hs
   build-depends:          base >= 4, tasty, tasty-hunit, tasty-quickcheck, tasty-smallcheck

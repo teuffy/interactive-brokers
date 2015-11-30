@@ -22,7 +22,7 @@ import           API.IB
 -- Reference data
 
 conES :: IBContract
-conES = future "ES" "ESH5" (Just $ fromGregorian 2015 03 20) GLOBEX "USD"
+conES = future "ES" "ESZ5" (Just $ fromGregorian 2015 12 18) GLOBEX "USD"
 
 conES' :: IBContract
 conES' = future "ES" "" Nothing GLOBEX "USD" 
@@ -36,7 +36,7 @@ requests = do
   display "Starting"
   displayStatus
   connect
-  reqConData
+  --reqConData
   reqMktData
   recvP 50
   displayStatus
@@ -52,7 +52,7 @@ requests = do
   
   where
   
-  reqConData = requestContractData conES'
+  --reqConData = requestContractData conES'
   reqMktData = requestMarketData conES [] False
   displayStatus = status >>= display . show
   recvP n = replicateM_ n $ recv >>= display . show

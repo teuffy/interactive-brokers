@@ -905,6 +905,8 @@ data IBExchange =
   | NASDAQ
   | NYMEX
   | NYSE
+  | DTB
+  | ECBOT
   | Other String
     deriving (Eq,Ord,Read,Show)
 

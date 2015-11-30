@@ -11,9 +11,9 @@ import qualified Data.Map                           as Map (size, toList)
 import           Data.Maybe
 import           Data.Monoid                        hiding (All, Product)
 import           Data.String
-import           Data.Time
+import           Data.Time                          --hiding (defaultTimeLocale)
 import           Prelude                            hiding (takeWhile)
-import           System.Locale
+import           System.Locale                      --hiding (defaultTimeLocale)
 
 import           API.IB.Constant
 import           API.IB.Data
@@ -383,7 +383,7 @@ createRequestHistoricalDataMsg :: Int -> Int -> IBContract -> LocalTime -> IBDur
 createRequestHistoricalDataMsg sversion tickerid IBContract{..} enddatetime duration@(IBDuration i u) barsize barbasis userth formatdate 
   | i <= 0 = Left InvalidDuration
   | i > 1 && u == Y = Left InvalidDuration
-  | barsize `notElem` [1,5,15,30,60,120,180,300,900,1800,3600,86400] = Left InvalidBarSize
+  | barsize `notElem` [1,5,15,30,60,120,180,300,900,1800,3600,14400,86400] = Left InvalidBarSize
   | otherwise = return $ ibMsgConcat 5 ReqHistoricalDataT
       [ [ intDec tickerid
         ]

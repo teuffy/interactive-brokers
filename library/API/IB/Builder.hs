@@ -20,6 +20,17 @@ future symbol_family symbol expiry_dt exchange currency = newIBContract
   , _conPrimaryExch = exchange
   }
 
+future1 :: String -> String -> Maybe Day -> IBExchange -> Currency -> IBContract
+future1 symbol_family symbol expiry_dt exchange currency = newIBContract 
+  { _conSymbol = symbol_family
+  , _conSecType = IBFuture
+  , _conExpiry = Nothing
+  , _conExchange = exchange
+  , _conCurrency = currency
+  , _conLocalSymbol = symbol
+  , _conPrimaryExch = exchange
+  }
+
 -- --------------------------------------------------------------------------
 -- Orders
 
